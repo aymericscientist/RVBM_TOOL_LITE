@@ -1,4 +1,5 @@
 import json
+import requests
 import psycopg2
 from tkinter import *
 from tkinter import filedialog
@@ -460,11 +461,19 @@ def link(bs_id, vm_id):
 
 # Fonction permettant d'ouvrir le fivhier KEV pour lecture
 def open_kev():
-    file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
-    if file_path:
-        with open(file_path, 'r') as file:
-            kev = json.load(file)
+    url = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+    try:
+        # Téléchargement du fichier JSON
+        response = requests.get(url)
+        response.raise_for_status()  # Vérifie si la requête s'est bien déroulée
+        
+        # Chargement du contenu JSON
+        kev = response.json()
         return kev
+    except requests.exceptions.RequestException as e:
+        print(f"Erreur lors du téléchargement du fichier KEV : {e}")
+    except json.JSONDecodeError as e:
+        print(f"Erreur lors du chargement du fichier KEV : {e}")
     return None
 
 # Fonction permettant de trier dans le Px associé les scores d'exploitabilité si NON KEV
@@ -779,3 +788,5 @@ if __name__ == "__main__":
             exit()
             cur.close()
             conn.close()
+
+# FIN 
