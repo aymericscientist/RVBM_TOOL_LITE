@@ -1,6 +1,6 @@
 ### Aperçu
 
-Ce projet porte sur l'analyse, la gestion et la visualisation des vulnérabilités dans les microservices et les machines virtuelles (VM) associées. L'application se connecte à une base de données PostgreSQL pour traiter et gérer les données, s'intègre au catalogue des vulnérabilités exploitées connues (KEV) et calcule les scores d'exploitabilité et environnementaux. Elle génère également des visualisations statistiques détaillées telles que des boîtes à moustaches pour évaluer les niveaux de risque.
+Ce projet porte sur l'analyse, la gestion et la visualisation des vulnérabilités dans les actifs et les valeurs métiers associées. L'application se connecte à une base de données pour traiter et gérer les données, s'intègre au catalogue des vulnérabilités exploitées connues (KEV) et calcule les scores d'exploitabilité et environnementaux. Elle génère également des visualisations statistiques descriptives détaillées telles que des boîtes à moustaches pour évaluer les niveaux de risque.
 
 ---
 
