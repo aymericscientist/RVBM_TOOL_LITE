@@ -9,8 +9,8 @@ Ce projet porte sur l'analyse, la gestion et la visualisation des vulnérabilit�
 1. **Configuration de la base de données**:
    - Schéma `jaka` avec les tables `micro`, `vm` et `jointure`.
    - `micro` stocke les données de vulnérabilité.
-   - `vm` contient les métadonnées sur les machines virtuelles.
-   - `jointure` relie les microservices aux VM.
+   - `vm` contient les métadonnées sur les valeurs métiers.
+   - `jointure` relie les microservices aux valeurs métiers.
 
 2. **Analyse des données**:
    - Traite les fichiers JSON VDR et KEV.
@@ -21,13 +21,13 @@ Ce projet porte sur l'analyse, la gestion et la visualisation des vulnérabilit�
    - Détermine les scores environnementaux tenant compte des valeurs maximales de CIA (Confidentialité, Intégrité, Disponibilité).
 
 4. **Visualisation**:
-   - Génère des boîtes à moustaches pour les microservices et les VM avec des catégories de sévérité (P1 à P5).
+   - Génère des boîtes à moustaches pour les microservices et les valeurs métiers avec des catégories de sévérité (P1 à P5).
 
 5. **Analyse descriptive statistique**:
    - Permet d'évaluer les risques liés aux vulnérabilités.
 
 6. **Mise à jour dynamique**:
-   - Met à jour la table `micro` avec les valeurs CIA héritées des VM associées.
+   - Met à jour la table `micro` avec les valeurs CIA héritées des valeurs métiers associées.
 
 ---
 
