@@ -1,6 +1,5 @@
 import json
-import requests
-import psycopg2
+import sqlite3
 from tkinter import *
 from tkinter import filedialog
 import matplotlib.pyplot as plt
@@ -8,13 +7,11 @@ import pandas as pd
 from contextlib import ExitStack
 import math
 from datetime import datetime
+import openpyxl
+import os
 
-conn = psycopg2.connect(database="postgres",
-    host="localhost",
-    user="postgres",
-    password="Alibabar",
-    port="5432")
-
+conn = sqlite3.connect("rbvm.db")
+conn.execute("PRAGMA foreign_keys = ON;")
 cur = conn.cursor()
 
 #Delete schema
@@ -24,76 +21,73 @@ cur = conn.cursor()
 
 # Création du schéma VM et de la table VM.info avec contraintes d'unicité sur D, C et I
 cur.execute("""
-      CREATE SCHEMA IF NOT EXISTS jaka;
-      CREATE TABLE IF NOT EXISTS jaka.vm(
-        name VARCHAR PRIMARY KEY,
-        A FLOAT,
-        C FLOAT,
-        I FLOAT
+      CREATE TABLE IF NOT EXISTS valeurs_metiers(
+        name TEXT PRIMARY KEY,
+        A REAL,
+        C REAL,
+        I REAL
         );
 """)
 
-#Création de la table micro dans le schéma jaka avec les infos parsées dans le fichier JSON
+#Création de la table biens_supports dans le schéma jaka avec les infos parsées dans le fichier JSON
 cur.execute("""
-    CREATE TABLE IF NOT EXISTS jaka.micro(
-        bs_id VARCHAR,
-        cve_id VARCHAR,
-        bom_ref VARCHAR,
-        composant_ref VARCHAR,
-        severity VARCHAR,
-        score_cvss FLOAT,
-        attack_vector VARCHAR,
-        attack_complexity VARCHAR,
-        privileges_required VARCHAR,
-        user_interaction VARCHAR,
-        scope VARCHAR,
-        impact_confidentiality VARCHAR,
-        impact_integrity VARCHAR,
-        impact_availability VARCHAR,
-        exp_score FLOAT,
-        env_score FLOAT,
-        KEV VARCHAR,
-        C_heritage FLOAT,
-        I_heritage FLOAT,
-        a_heritage FLOAT,
+    CREATE TABLE IF NOT EXISTS biens_supports(
+        bs_id TEXT NOT NULL,
+        cve_id TEXT,
+        bom_ref TEXT,
+        composant_ref TEXT,
+        severity TEXT,
+        score_cvss REAL,
+        attack_vector REAL,
+        attack_complexity REAL,
+        privileges_required REAL,
+        user_interaction REAL,
+        scope TEXT,
+        impact_confidentiality TEXT,
+        impact_integrity TEXT,
+        impact_availability TEXT,
+        exp_score REAL,
+        env_score REAL,
+        KEV TEXT,
+        C_heritage REAL,
+        I_heritage REAL,
+        a_heritage REAL,
         PRIMARY KEY (bs_id, cve_id)
     );
 """)
 
 cur.execute("""
-    CREATE TABLE IF NOT EXISTS jaka.jointure(
-        num SERIAL PRIMARY KEY,
-        bs_id VARCHAR,
-        vm_id VARCHAR,
-        cve_id VARCHAR,
-        FOREIGN KEY (bs_id, cve_id) REFERENCES jaka.micro(bs_id, cve_id), 
-        FOREIGN KEY (vm_id) REFERENCES jaka.vm(name)
-    );
+    CREATE TABLE IF NOT EXISTS jointure(
+    num    INTEGER PRIMARY KEY AUTOINCREMENT,
+    bs_id  TEXT NOT NULL,
+    vm_id  TEXT,
+    FOREIGN KEY (vm_id) REFERENCES valeurs_metiers(name)
+);
 """)
 
-# Mettre à jour les valeurs D, C, I dans micro en fonction de la VM associée
+# Mettre à jour les valeurs D, C, I dans biens_supports en fonction de la VM associée
 #à updater = done
 def update_micro_heritage():
     cur.execute("""
-        UPDATE jaka.micro m
+        UPDATE biens_supports
         SET 
             C_heritage = (
                 SELECT MAX(vm.C)
-                FROM jaka.jointure j
-                JOIN jaka.vm vm ON j.vm_id = vm.name
-                WHERE j.bs_id = m.bs_id
+                FROM jointure j
+                JOIN valeurs_metiers vm ON j.vm_id = vm.name
+                WHERE j.bs_id = biens_supports.bs_id
             ),
             I_heritage = (
                 SELECT MAX(vm.I)
-                FROM jaka.jointure j
-                JOIN jaka.vm vm ON j.vm_id = vm.name
-                WHERE j.bs_id = m.bs_id
+                FROM jointure j
+                JOIN valeurs_metiers vm ON j.vm_id = vm.name
+                WHERE j.bs_id = biens_supports.bs_id
             ),
             a_heritage = (
                 SELECT MAX(vm.A)
-                FROM jaka.jointure j
-                JOIN jaka.vm vm ON j.vm_id = vm.name
-                WHERE j.bs_id = m.bs_id
+                FROM jointure j
+                JOIN valeurs_metiers vm ON j.vm_id = vm.name
+                WHERE j.bs_id = biens_supports.bs_id
             );
     """)
 
@@ -112,9 +106,22 @@ authentification = None
 exp_score = None
 env_score = None
 kev = None
+folder_BS_VERT = None
+folder_BS_ORANGE = None
+folder_BS_ROUGE = None
+folder_VM_VERT = None
+folder_VM_ORANGE = None
+folder_VM_ROUGE = None
+folder_VM_META = None
 
 # Dictionnaire permettant de stocker les microservices ainsi que leurs valeurs P1, P2, P3, P4, P5,
 dicoListePx = {}
+
+dicoC = {'p5':[], 'p4':[], 'p3':[], 'p2':[], 'p1':[]}
+dicoI = {'p5':[], 'p4':[], 'p3':[], 'p2':[], 'p1':[]}
+dicoA = {'p5':[], 'p4':[], 'p3':[], 'p2':[], 'p1':[]}
+
+dicoGlobal = {"confidentiality": dicoC, "integrity": dicoI, "availability": dicoA}
 
 ##### CLASSES ET LISTES #####
 
@@ -193,6 +200,42 @@ def calcul_score_exploitabilité(attack_vector, attack_complexity, privileges_re
     exp_score = (8.22 * attack_vector * attack_complexity * privileges_required * user_interaction) / 3.9 * 4
     return round(exp_score, 1)
 
+# Fonction permettant de trier le nombre de CVE en vert, orange et rouge en fonction de chaque P(x)
+def triAffichageVOR(p1, p2, p3, p4, p5, p1Vert, p1Orange, p1Rouge, p2Vert, p2Orange, p2Rouge, p3Vert, p3Orange, p4Vert, p4Orange, p5Vert):
+    for score in p1:
+        if 0 <= score <= 0.4:
+            p1Vert += 1
+        elif 0.5 <= score <= 1.4:
+            p1Orange += 1
+        else:
+            p1Rouge += 1
+    
+    for score in p2:
+        if 0 <= score <= 0.4:
+            p2Vert += 1
+        elif 0.5 <= score <= 2.4:
+            p2Orange += 1
+        else:
+            p2Rouge += 1
+    
+    for score in p3:
+        if 0 <= score <= 1.4:
+            p3Vert += 1
+        else:
+            p3Orange += 1
+
+    for score in p4:
+        if 0 <= score <= 2.4:
+            p4Vert += 1
+        else:
+            p4Orange += 1
+
+    for score in p5:
+        p5Vert += 1
+    
+    return (p1Vert, p1Orange, p1Rouge, p2Vert, p2Orange, p2Rouge, p3Vert, p3Orange, p4Vert, p4Orange, p5Vert)
+
+
 # Fonction de decomposition analytique du VDR
 def parsing(vdr_data, kev_data) :
     p1 = []
@@ -231,8 +274,8 @@ def parsing(vdr_data, kev_data) :
                     composant_ref=composant_ref,
                     description=description,
                     severity=severity)
-                cur.execute("""INSERT INTO jaka.micro(bs_id, cve_id, bom_ref, composant_ref, severity) 
-                            VALUES (%s, %s, %s, %s, %s) 
+                cur.execute("""INSERT INTO biens_supports(bs_id, cve_id, bom_ref, composant_ref, severity) 
+                            VALUES (?, ?, ?, ?, ?) 
                             ON CONFLICT (bs_id, cve_id) DO NOTHING;
                             """, (bs_id, vuln_other.id, serialNumber, vuln_other.composant_ref, vuln_other.severity))
                 continue
@@ -329,10 +372,10 @@ def parsing(vdr_data, kev_data) :
     # Insert vulnerabilities for the current vdr_data
     for vuln in list_vulnerabilities:
         cur.execute("""
-            INSERT INTO jaka.micro(
+            INSERT INTO biens_supports(
                 bs_id, cve_id, bom_ref, composant_ref, severity, score_cvss, attack_vector, attack_complexity, privileges_required, user_interaction, scope, impact_confidentiality, impact_integrity, impact_availability, exp_score, KEV
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (bs_id, cve_id) DO NOTHING;
         """, (bs_id, vuln.id, serialNumber, vuln.composant_ref, vuln.severity, vuln.score_CVSS, vuln.attack_vector, vuln.attack_complexity, vuln.privileges_required, vuln.user_interaction, vuln.scope, vuln.confidentiality, vuln.integrity, vuln.availability, vuln.exp_score, vuln.kev
         ))
@@ -391,7 +434,7 @@ def option_5_calcul_scores():
             privileges_required, 
             user_interaction 
         FROM 
-            jaka.micro
+            biens_supports
         ORDER BY 
             bs_id, cve_id;
     """)
@@ -435,9 +478,9 @@ def option_5_calcul_scores():
     for bs_id, cve_scores in scores_dict.items():
         for cve_id, env_score in cve_scores.items():
             cur.execute("""
-                UPDATE jaka.micro
-                SET env_score = %s
-                WHERE bs_id = %s AND cve_id = %s;
+                UPDATE biens_supports
+                SET env_score = ?
+                WHERE bs_id = ? AND cve_id = ?;
             """, (env_score, bs_id, cve_id))
 
 # Fonctions de conversion des valeurs d'impact CIA en valeurs numériques
@@ -453,7 +496,7 @@ def link(bs_id, vm_id):
 #rajouter un WHERE pour null pour éviter les doublons | créer une fonction indé qui permet la demande de prendre la valeur max des CIA requirements des vm
 # dès lors qu'un micro service a pls vm associées = done 
     cur.execute(f"""
-    UPDATE jaka.jointure 
+    UPDATE jointure 
     SET vm_id = '{vm_id}'
     WHERE bs_id = '{bs_id}' AND vm_id IS NULL
 ;
@@ -461,24 +504,16 @@ def link(bs_id, vm_id):
 
 # Fonction permettant d'ouvrir le fivhier KEV pour lecture
 def open_kev():
-    url = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
-    try:
-        # Téléchargement du fichier JSON
-        response = requests.get(url)
-        response.raise_for_status()  # Vérifie si la requête s'est bien déroulée
-        
-        # Chargement du contenu JSON
-        kev = response.json()
+    file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
+    if (file_path):
+        with open(file_path, 'r') as file:
+            kev = json.load(file)
         return kev
-    except requests.exceptions.RequestException as e:
-        print(f"Erreur lors du téléchargement du fichier KEV : {e}")
-    except json.JSONDecodeError as e:
-        print(f"Erreur lors du chargement du fichier KEV : {e}")
     return None
 
 # Fonction permettant de trier dans le Px associé les scores d'exploitabilité si NON KEV
 def definitionPx(p2, p3, p4, p5, scoreEnv, scoreExp):
-    if 9.0 <= scoreEnv <= 10:
+    if 9.0 <= scoreEnv <= 10.0:
         p2.append(scoreExp)
     elif 7.0 <= scoreEnv <= 8.9:
         p3.append(scoreExp)
@@ -490,18 +525,40 @@ def definitionPx(p2, p3, p4, p5, scoreEnv, scoreExp):
     
     return (p2, p3, p4, p5)
 
-# Fonction permettant de crer les boites a moustache des Microservices
+# Fonction permettant de créer les boites à moustache des Microservices
 def boite(boite_path):
-    cur.execute("SELECT DISTINCT bs_id FROM jaka.micro;")
+    cur.execute("SELECT DISTINCT bs_id FROM biens_supports;")
     bs = cur.fetchall()
     liste_dia = ["confidentiality", "integrity", "availability"]
+    p1Vert = 0
+    p1Orange = 0
+    p1Rouge = 0
+    p2Vert = 0
+    p2Orange = 0
+    p2Rouge = 0
+    p3Vert = 0
+    p3Orange = 0
+    p4Vert = 0
+    p4Orange = 0
+    p5Vert = 0
     for i in range (len(liste_dia)):
         for b in bs:
+            p1Vert = 0
+            p1Orange = 0
+            p1Rouge = 0
+            p2Vert = 0
+            p2Orange = 0
+            p2Rouge = 0
+            p3Vert = 0
+            p3Orange = 0
+            p4Vert = 0
+            p4Orange = 0
+            p5Vert = 0
             b = b[0]
             cur.execute("""
                 SELECT cve_id 
-                FROM jaka.micro 
-                WHERE bs_id = %s AND kev = 'YES';
+                FROM biens_supports 
+                WHERE bs_id = ? AND kev = 'YES';
             """, (b,))
 
             kev = cur.fetchall()
@@ -509,8 +566,8 @@ def boite(boite_path):
 
             cur.execute(f"""
                 SELECT cve_id, exp_score, env_score 
-                FROM jaka.micro 
-                WHERE bs_id = %s AND impact_{liste_dia[i]} != 'N';
+                FROM biens_supports 
+                WHERE bs_id = ? AND impact_{liste_dia[i]} != 'N';
             """, (b,))
             #faire une triple boucle for en ajoutant dans un WHERE où confidentialité != N , intégrité != N et disponibilité != N
             data = cur.fetchall()
@@ -527,6 +584,8 @@ def boite(boite_path):
                 else:
                     p2, p3, p4, p5 = definitionPx(p2, p3, p4, p5, env_score, exp_score)
 
+            p1Vert, p1Orange, p1Rouge, p2Vert, p2Orange, p2Rouge, p3Vert, p3Orange, p4Vert, p4Orange, p5Vert = triAffichageVOR(p1, p2, p3, p4, p5, p1Vert, p1Orange, p1Rouge, p2Vert, p2Orange, p2Rouge, p3Vert, p3Orange, p4Vert, p4Orange, p5Vert)
+
             data = [p5, p4, p3, p2, p1]
             impact_key = f"{b}-{liste_dia[i]}"
             dicoListePx[impact_key] = data
@@ -535,6 +594,14 @@ def boite(boite_path):
             positions = [1, 2, 3, 4, 5]
             labels = ["P5", "P4", "P3", "P2", "P1"]
             data_filtree = [d if isinstance(d, list) and len(d) > 0 else [] for d in data]
+
+            nbVertOrangeRouge = [
+                [(f"{p5Vert}", "green")],
+                [(f"{p4Vert}", "green"), (f"{p4Orange}", "orange")],
+                [(f"{p3Vert}", "green"), (f"{p3Orange}", "orange")],
+                [(f"{p2Vert}", "green"), (f"{p2Orange}", "orange"), (f"{p2Rouge}", "red")],
+                [(f"{p1Vert}", "green"), (f"{p1Orange}", "orange"), (f"{p1Rouge}", "red")],
+            ]
 
             # Obtenir la date de creation de la boite pour affichage dans le nom du fichier cree
             now = datetime.now()
@@ -567,21 +634,44 @@ def boite(boite_path):
 
             # Ajouter les étiquettes, titre et limites
             ax.set_title(f'{b} ({liste_dia[i]})')
-            ax.set_ylabel("Sévérité")
+            ax.set_ylabel("Sévérité", labelpad=55)
             ax.set_xlabel("Score d'exploitabilité")
             ax.set_xlim(0, 4)
             ax.set_ylim(0.5, 5.5)  # Ajusté pour correspondre à l'image de fond
             ax.set_yticks(positions)
             ax.set_yticklabels(labels)
+
+            for pos, nbVertOrangeRouge in zip(positions, nbVertOrangeRouge):
+                y_pos = pos
+                x_pos = -0.43
+                for text, color in nbVertOrangeRouge:
+                    ax.text(x_pos, y_pos, text, ha='right', va='center', fontsize=11, color=color)
+                    x_pos += 0.1
+
+            # Ajuster dynamiquement le labelpad après redimensionnement
+            def update_labelpad(event):
+                """Ajuster dynamiquement le labelpad du label y."""
+                fig_width, _ = fig.get_size_inches()
+                ax.set_ylabel("Sévérité", labelpad=fig_width * 5)  # Ajuste en fonction de la largeur
+
+            # Connecter l'événement de redimensionnement
+            fig.canvas.mpl_connect("resize_event", update_labelpad)
+
             # Sauvegarder la figure
             plt.savefig(f'{boite_path}\\{b}-{liste_dia[i]} {date}.png', format='png', dpi=300)
+            if (p1Vert or p2Vert or p3Vert or p4Vert or p5Vert != 0) and (p1Orange == 0 and p1Rouge == 0 and p2Orange == 0 and p2Rouge == 0 and p3Orange == 0 and p4Orange == 0):
+                plt.savefig(f'{folder_BS_VERT}\\{b}-{liste_dia[i]} {date}.png', format='png', dpi=300)
+            if (p1Orange or p2Orange or p3Orange or p3Orange != 0) and (p1Rouge == 0 and p2Rouge == 0):
+                plt.savefig(f'{folder_BS_ORANGE}\\{b}-{liste_dia[i]} {date}.png', format='png', dpi=300)
+            if p1Rouge or p2Rouge != 0:
+                plt.savefig(f'{folder_BS_ROUGE}\\{b}-{liste_dia[i]} {date}.png', format='png', dpi=300)
 
 def boite_vm(vm_id, folder_path):
     liste_dia = ["confidentiality", "integrity", "availability"]
     cur.execute("""
         SELECT j.bs_id
-        FROM jaka.jointure j
-        WHERE j.vm_id = %s;
+        FROM jointure j
+        WHERE j.vm_id = ?;
     """, (vm_id,))
 
     rows = cur.fetchall()
@@ -615,9 +705,56 @@ def boite_vm(vm_id, folder_path):
         data[impact] = [p5, p4, p3, p2, p1]
 
     for impact in liste_dia:
+        p1 = data[impact][4]
+        p2 = data[impact][3]
+        p3 = data[impact][2]
+        p4 = data[impact][1]
+        p5 = data[impact][0]
+
+        if impact == "confidentiality":
+            dicoC["p5"].extend(p5)
+            dicoC["p4"].extend(p4)
+            dicoC["p3"].extend(p3)
+            dicoC["p2"].extend(p2)
+            dicoC["p1"].extend(p1)
+        elif impact == "integrity":
+            dicoI["p5"].extend(p5)
+            dicoI["p4"].extend(p4)
+            dicoI["p3"].extend(p3)
+            dicoI["p2"].extend(p2)
+            dicoI["p1"].extend(p1)
+        elif impact == "availability":
+            dicoA["p5"].extend(p5)
+            dicoA["p4"].extend(p4)
+            dicoA["p3"].extend(p3)
+            dicoA["p2"].extend(p2)
+            dicoA["p1"].extend(p1)
+
+        p1Vert = 0
+        p1Orange = 0
+        p1Rouge = 0
+        p2Vert = 0
+        p2Orange = 0
+        p2Rouge = 0
+        p3Vert = 0
+        p3Orange = 0
+        p4Vert = 0
+        p4Orange = 0
+        p5Vert = 0
+
+        p1Vert, p1Orange, p1Rouge, p2Vert, p2Orange, p2Rouge, p3Vert, p3Orange, p4Vert, p4Orange, p5Vert = triAffichageVOR(p1, p2, p3, p4, p5, p1Vert, p1Orange, p1Rouge, p2Vert, p2Orange, p2Rouge, p3Vert, p3Orange, p4Vert, p4Orange, p5Vert)
+
         positions = [1, 2, 3, 4, 5]
         labels = ["P5", "P4", "P3", "P2", "P1"]
         data_filtree = [d if len(d) > 0 else [] for d in data[impact]]
+
+        nbVertOrangeRouge = [
+            [(f"{p5Vert}", "green")],
+            [(f"{p4Vert}", "green"), (f"{p4Orange}", "orange")],
+            [(f"{p3Vert}", "green"), (f"{p3Orange}", "orange")],
+            [(f"{p2Vert}", "green"), (f"{p2Orange}", "orange"), (f"{p2Rouge}", "red")],
+            [(f"{p1Vert}", "green"), (f"{p1Orange}", "orange"), (f"{p1Rouge}", "red")],
+        ]
 
         now = datetime.now()
         date = now.strftime("%d.%m.%Y")
@@ -637,18 +774,122 @@ def boite_vm(vm_id, folder_path):
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.set_title(f'{vm_id} - {impact.capitalize()}')
-        ax.set_ylabel("Sévérité")
+        ax.set_ylabel("Sévérité", labelpad=55)
         ax.set_xlabel("Score d'exploitabilité")
         ax.set_xlim(0, 4.1)
         ax.set_ylim(0.5, 5.5)
         ax.set_yticks(positions)
         ax.set_yticklabels(labels)
         name = f"{vm_id}-{impact}-{date}"
-        plt.savefig(f'{folder_path}\\{name}.png', format='png', dpi=300)
-        plt.close(fig)
 
+        for pos, nbVertOrangeRouge in zip(positions, nbVertOrangeRouge):
+            y_pos = pos
+            x_pos = -0.43
+            for text, color in nbVertOrangeRouge:
+                ax.text(x_pos, y_pos, text, ha='right', va='center', fontsize=11, color=color)
+                x_pos += 0.1
+
+        # Ajuster dynamiquement le labelpad après redimensionnement
+        def update_labelpad(event):
+            """Ajuster dynamiquement le labelpad du label y."""
+            fig_width, _ = fig.get_size_inches()
+            ax.set_ylabel("Sévérité", labelpad=fig_width * 5)  # Ajuste en fonction de la largeur
+
+        # Connecter l'événement de redimensionnement
+        fig.canvas.mpl_connect("resize_event", update_labelpad)
+        plt.savefig(f'{folder_path}\\{name}.png', format='png', dpi=300)
+        if (p1Vert or p2Vert or p3Vert or p4Vert or p5Vert != 0) and (p1Orange == 0 and p1Rouge == 0 and p2Orange == 0 and p2Rouge == 0 and p3Orange == 0 and p4Orange == 0):
+            plt.savefig(f'{folder_VM_VERT}\\{name}.png', format='png', dpi=300)
+        if (p1Orange or p2Orange or p3Orange or p3Orange != 0) and (p1Rouge == 0 and p2Rouge == 0):
+            plt.savefig(f'{folder_VM_ORANGE}\\{name}.png', format='png', dpi=300)
+        if p1Rouge or p2Rouge != 0:
+            plt.savefig(f'{folder_VM_ROUGE}\\{name}.png', format='png', dpi=300)
+        plt.close(fig)
     # Afficher le graphique
     #plt.show()
+
+def boite_vm_globale(folder_path):
+    liste_dia = ["confidentiality", "integrity", "availability"]
+
+    for impact in liste_dia:
+        p1 = dicoGlobal[impact]['p1']
+        p2 = dicoGlobal[impact]['p2']
+        p3 = dicoGlobal[impact]['p3']
+        p4 = dicoGlobal[impact]['p4']
+        p5 = dicoGlobal[impact]['p5']
+
+        p1Vert = 0
+        p1Orange = 0
+        p1Rouge = 0
+        p2Vert = 0
+        p2Orange = 0
+        p2Rouge = 0
+        p3Vert = 0
+        p3Orange = 0
+        p4Vert = 0
+        p4Orange = 0
+        p5Vert = 0
+
+        p1Vert, p1Orange, p1Rouge, p2Vert, p2Orange, p2Rouge, p3Vert, p3Orange, p4Vert, p4Orange, p5Vert = triAffichageVOR(p1, p2, p3, p4, p5, p1Vert, p1Orange, p1Rouge, p2Vert, p2Orange, p2Rouge, p3Vert, p3Orange, p4Vert, p4Orange, p5Vert)
+
+        data = [p5, p4, p3, p2, p1]
+
+        positions = [1, 2, 3, 4, 5]
+        labels = ["P5", "P4", "P3", "P2", "P1"]
+        data_filtree = [d if len(d) > 0 else [] for d in data]
+        # data_filtree = [d if isinstance(d, list) and len(d) > 0 else [] for d in data]
+
+        nbVertOrangeRouge = [
+            [(f"{p5Vert}", "green")],
+            [(f"{p4Vert}", "green"), (f"{p4Orange}", "orange")],
+            [(f"{p3Vert}", "green"), (f"{p3Orange}", "orange")],
+            [(f"{p2Vert}", "green"), (f"{p2Orange}", "orange"), (f"{p2Rouge}", "red")],
+            [(f"{p1Vert}", "green"), (f"{p1Orange}", "orange"), (f"{p1Rouge}", "red")],
+        ]
+
+        now = datetime.now()
+        date = now.strftime("%d.%m.%Y")
+        im = plt.imread("fond.png")
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.imshow(im, extent=[0, 4, 0.5, 5.5], aspect='auto', alpha=0.5, zorder=0)
+
+        ax.boxplot(data_filtree, vert=False, positions=positions, patch_artist=False, showfliers=False, zorder=1)
+        box = ax.boxplot(data_filtree, vert=False, positions=positions, patch_artist=False, showfliers=False, zorder=1)
+
+        ax.grid(axis='x', linestyle='--', linewidth=0.5, color='gray', alpha=0.7)
+
+        for median in box['medians']:
+            median.set_color('red')
+            median.set_linewidth(3)
+
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.set_title(f'Meta representation VM - {impact.capitalize()}')
+        ax.set_ylabel("Sévérité", labelpad=55)
+        ax.set_xlabel("Score d'exploitabilité")
+        ax.set_xlim(0, 4.1)
+        ax.set_ylim(0.5, 5.5)
+        ax.set_yticks(positions)
+        ax.set_yticklabels(labels)
+        name = f"Meta representation VM-{impact}-{date}"
+
+        for pos, nbVertOrangeRouge in zip(positions, nbVertOrangeRouge):
+            y_pos = pos
+            x_pos = -0.43
+            for text, color in nbVertOrangeRouge:
+                ax.text(x_pos, y_pos, text, ha='right', va='center', fontsize=11, color=color)
+                x_pos += 0.1
+
+        # Ajuster dynamiquement le labelpad après redimensionnement
+        def update_labelpad(event):
+            """Ajuster dynamiquement le labelpad du label y."""
+            fig_width, _ = fig.get_size_inches()
+            ax.set_ylabel("Sévérité", labelpad=fig_width * 5)  # Ajuste en fonction de la largeur
+
+        # Connecter l'événement de redimensionnement
+        fig.canvas.mpl_connect("resize_event", update_labelpad)
+        plt.savefig(f'{folder_VM_META}\\{name}.png', format='png', dpi=300)
+        plt.close(fig)
 
 def open_files():
     file_paths = filedialog.askopenfilenames(filetypes=[("JSON files", "*.json")])
@@ -659,42 +900,145 @@ def open_files():
             data_list.append(data)
     return data_list
 
+def parse_excel():
+    file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
+    if not file_path:
+        print("No .xlsx file selected.")
+        return
+
+    excel = openpyxl.load_workbook(file_path)
+    feuille = excel.active
+    results = {}
+
+    # Prcourir toutes les colonnes à partir de la colonne B avec col = B et row = 2 (B2)
+    for col in feuille.iter_cols(min_col=2, min_row=2, values_only=False):
+        col_index = col[0].column # Récupère l'index de la colonne actuelle (par ex 2 pour la colonne B).
+        col_name = feuille.cell(row=1, column=col_index).value  # Récupère le nom de la colonne
+        print(col_name)
+        for cell in col:
+            if cell.value and str(cell.value).lower() == 'oui':
+                row_index = cell.row
+                row_name = feuille[f"A{row_index}"].value  # Récupère la valeur de la colonne A pour cette ligne
+                if col_name not in results:
+                    results[col_name] = []
+                if row_name not in results[col_name]:
+                    results[col_name].append(row_name)
+
+    print(results)
+    cur.execute("DROP TABLE IF EXISTS jointure;")
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS jointure(
+    num    INTEGER PRIMARY KEY AUTOINCREMENT,
+    bs_id  TEXT NOT NULL,
+    vm_id  TEXT,
+    FOREIGN KEY (vm_id) REFERENCES valeurs_metiers(name));
+                """)
+    # Insert results into the jointure table
+    for vm_id, bs_ids in results.items():
+        for bs_id in bs_ids:
+            cur.execute("""
+                INSERT INTO jointure (bs_id, vm_id)
+                VALUES (?, ?);
+            """, (bs_id, vm_id))
+    
+
+    conn.commit()
+    return results
+
+def convert_level(value):
+    if not value:
+        return 0
+    if "E" in value:       # Elevée
+        return 1.5
+    elif "M" in value:     # Moyenne
+        return 1
+    elif "L" in value:     # Faible
+        return 0.5
+    return 0
+
+def parse_vm():
+    root = Tk()
+    root.withdraw()
+    file_path = filedialog.askopenfilename(filetypes=[("Excel files","*.xlsx")])
+    if not file_path:
+        print("No Excel file selected.")
+        return
+
+    wb = openpyxl.load_workbook(file_path)
+    sheet = wb.active
+    results = {}
+    for row in range(3, sheet.max_row + 1):
+        valeur_meiter = sheet.cell(row=row, column=8).value
+        if not valeur_meiter:
+            continue
+        D = convert_level(str(sheet.cell(row=row, column=10).value)) # colonne J
+        I = convert_level(str(sheet.cell(row=row, column=13).value)) # colonne M
+        C  = convert_level(str(sheet.cell(row=row, column=15).value)) # colonne O
+
+        results[valeur_meiter] = (D, I, C)
+    
+    # Insérer les valeurs dans valeurs_metiers
+    for valeur_meiter, (D, I, C) in results.items():
+        cur.execute("""
+            INSERT INTO valeurs_metiers (name, A, C, I)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(name) DO UPDATE SET A=excluded.A, C=excluded.C, I=excluded.I;
+        """, (valeur_meiter, D, C, I))
+    conn.commit()
+
 if __name__ == "__main__":
     root = Tk()
     root.withdraw()  # Cache la fenêtre principale
     while True:
         print("Choisir une étape:\n")
         print("1. Sélectionner un Vulnerability Disclosure Report (VDR) et le fichier Known Exploited Vulnerabilities Catalog (KEV)")
+        print("------------------------------------")
+        print("2. Lier un bien support (BS) [microservice] à une valeur métier (VM)")
         #import de masse VDR + import unique du catalogue KEV -> done
-        print(" Lier un bien support (BS) [microservice] à une valeur métier (VM)")
         print(" Mettre à jour la surface d'attaque d'un bien support (BS) [microservice]")
         #passe en backend (clés primaires clés étrangères dans 'jointure') -> done
+        print("Affecter les valeurs DIC à un bien support (BS) [microservice] en fonction de la valeur métier (VM)")
+        print("Calculer le score environnemental de chaque bien support (BS) [microservice]")
         print("------------------------------------")
-        print("2. Affecter les valeurs DIC à un bien support (BS) [microservice] en fonction de la valeur métier (VM)")
-        print("3. Calculer le score environnemental de chaque bien support (BS) [microservice]")
-        print("------------------------------------")
-        print("4. Afficher le traitement statistique descriptif des risques concernant les bien supports (BS) [microservice]")
-        print("5. Afficher les boîtes à moustache VM")
+        print("3. Générer le traitement statistique descriptif des risques concernant les bien supports (BS) [microservice]")
+        print("4. Générer les boîtes à moustache VM")
         #en masse
         #valeur métier (même que option6)
         #harmoniser CIA pas DIC
         #créer des vues pour voir les micro et vm qui ne sont pas liés dans 'jointure' et les afficher
-        print("6. Quitter")
+        print("5. Quitter")
 
         option = input("Etape: ")
-        if option == "5":
+        if option == "4":
             if not dicoListePx:
-                print("Please run option 4 first to populate data.")
+                print("Please run option 2 first to populate data.")
                 continue
             folder_path = filedialog.askdirectory()
             if not folder_path:
                 print("No folder selected.")
                 continue
-            cur.execute("SELECT DISTINCT vm_id FROM jaka.jointure;")
+            subfolder_VERT = os.path.join(folder_path, "03_VERT")
+            subfolder_ORANGE = os.path.join(folder_path, "02_ORANGE")
+            subfolder_ROUGE = os.path.join(folder_path, "01_ROUGE")
+            subfolder_VM_META = os.path.join(folder_path, "04_Meta_représentation_des_VM")
+            folder_VM_VERT = subfolder_VERT
+            folder_VM_ORANGE = subfolder_ORANGE
+            folder_VM_ROUGE = subfolder_ROUGE
+            folder_VM_META = subfolder_VM_META
+            if not os.path.exists(subfolder_VERT):
+                os.makedirs(subfolder_VERT, exist_ok=True)
+            if not os.path.exists(subfolder_ORANGE):
+                os.makedirs(subfolder_ORANGE, exist_ok=True)
+            if not os.path.exists(subfolder_ROUGE):
+                os.makedirs(subfolder_ROUGE, exist_ok=True)
+            if not os.path.exists(subfolder_VM_META):
+                os.makedirs(subfolder_VM_META, exist_ok=True)
+            cur.execute("SELECT DISTINCT vm_id FROM jointure;")
             v = cur.fetchall()
             for vid in v:
                 vid = vid[0]
                 boite_vm(vid, folder_path)
+            boite_vm_globale(folder_path)
             
         if option == "1":
             vdr_data_list = open_files()
@@ -710,10 +1054,10 @@ if __name__ == "__main__":
                 bs_id = vdr_data.get('metadata', {}).get('component', {}).get('name')
                 serialNumber = vdr_data.get('serialNumber')
                 #ajouter le bs_id dans jointure
-                cur.execute(f"""
-                    INSERT INTO jaka.jointure (bs_id)
-                    VALUES ('{bs_id}');
-                """)
+                # cur.execute(f"""
+                #     INSERT INTO jointure (bs_id)
+                #     VALUES (?);
+                # """, (bs_id,))
 
                 parsing(vdr_data, kev_data)
 
@@ -726,34 +1070,31 @@ if __name__ == "__main__":
             #         ('Test', 1, 1.5, 1.5);
             # """)
 
-            #Drop les views
-            # cur.execute("""
-            #     DROP VIEW IF EXISTS jaka.impact_confidentiality CASCADE;
-            #     DROP VIEW IF EXISTS jaka.impact_integrity CASCADE;
-            #     DROP VIEW IF EXISTS jaka.impact_availability CASCADE;
-            # """)
+            # Drop les views
+            cur.execute("DROP VIEW IF EXISTS impact_confidentiality;")
+            cur.execute("DROP VIEW IF EXISTS impact_integrity;")
+            cur.execute("DROP VIEW IF EXISTS impact_availability;")
 
+            # Crée les views
             cur.execute("""
-                CREATE OR REPLACE VIEW jaka.impact_confidentiality AS
-                SELECT * FROM jaka.micro
+                CREATE VIEW impact_confidentiality AS
+                SELECT * FROM biens_supports
                 WHERE impact_confidentiality != 'N';
             """)
 
             cur.execute("""
-                CREATE OR REPLACE VIEW jaka.impact_integrity AS
-                SELECT * FROM jaka.micro
+                CREATE VIEW impact_integrity AS
+                SELECT * FROM biens_supports
                 WHERE impact_integrity != 'N';
             """)
 
             cur.execute("""
-                CREATE OR REPLACE VIEW jaka.impact_availability AS
-                SELECT * FROM jaka.micro
+                CREATE VIEW impact_availability AS
+                SELECT * FROM biens_supports
                 WHERE impact_availability != 'N';
             """)
 
             conn.commit()
-
-        
 
             #changer bom_ref en composant_ref = done
             #arrondir aux décimales 10^-1 les valeur de exp_score = done
@@ -761,32 +1102,41 @@ if __name__ == "__main__":
             # |
             # |
             # -->done
-
+            
         elif option == "2":
-            update_micro_heritage()
-            print("Valeurs D, C, I mises à jour dans micro en fonction de la VM associée.")
-            conn.commit()
+            print("Sélectionner le fichier excel contenant la liste des valeurs métiers (VM)")
+            parse_vm()
+            print("Sélectionner le fichier excel contenant la liste des biens supports (BS) associés à une valeur métier (VM)")
+            parse_excel()
 
-        elif option == "3":
-            print("Assurez-vous que les valeurs D, C, I dans la table micro sont à jour en fonction de la valeur métier associée")
-            
+            update_micro_heritage()
+            print("Valeurs D, C, I mises à jour dans biens_supports en fonction de la VM associée.")            
             option_5_calcul_scores()
-            
             print("Scores environnementaux mis à jour.")
             conn.commit()
             
-        elif option == "4":
+        elif option == "3":
             print("Affichage boîte à moustache")      
             #dans boite et boite_vm, j'ai besoin de générer pour chaque bien support 3 fichiers de boîte à moustache, chacune qui s'assure que impact_availability != N; impact_confidentiality != N et impact_integrity != N      
             boite_path = filedialog.askdirectory()
             if not boite_path:
                 print("No folder selected.")
                 continue
+            subfolder_VERT = os.path.join(boite_path, "03_VERT")
+            subfolder_ORANGE = os.path.join(boite_path, "02_ORANGE")
+            subfolder_ROUGE = os.path.join(boite_path, "01_ROUGE")
+            folder_BS_VERT = subfolder_VERT
+            folder_BS_ORANGE = subfolder_ORANGE
+            folder_BS_ROUGE = subfolder_ROUGE
+            if not os.path.exists(subfolder_VERT):
+                os.makedirs(subfolder_VERT, exist_ok=True)
+            if not os.path.exists(subfolder_ORANGE):
+                os.makedirs(subfolder_ORANGE, exist_ok=True)
+            if not os.path.exists(subfolder_ROUGE):
+                os.makedirs(subfolder_ROUGE, exist_ok=True)
             boite(boite_path)
 
-        elif option == "6":
+        elif option == "5":
             exit()
             cur.close()
             conn.close()
-
-# FIN 
