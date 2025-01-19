@@ -1,4 +1,4 @@
-# Gestion des Biens Supports (BS) et des Valeurs Métiers (VM)
+# Gestion des risques relatif aux biens supports (BS) et aux valeurs métiers (VM)
 
 Ce script Python permet d'analyser et de traiter des données issues de rapports de divulgation de vulnérabilités (VDR) ainsi que des catalogues de vulnérabilités exploitées (KEV). Il offre également des outils d'analyse statistique pour évaluer les risques des biens supports (BS) et des valeurs métiers (VM).
 
