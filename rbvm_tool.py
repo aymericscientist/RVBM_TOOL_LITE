@@ -1,15 +1,15 @@
 
-import json
-import sqlite3
-from tkinter import *
-from tkinter import filedialog
-import matplotlib.pyplot as plt
-import pandas as pd
-from contextlib import ExitStack
-import math
-from datetime import datetime
-import openpyxl
-import os
+import json  # Module pour lire, écrire et manipuler des données au format JSON.
+import sqlite3  # Module intégré pour interagir avec des bases de données SQLite.
+from tkinter import *  # Module pour créer des interfaces graphiques (fenêtres, boutons, etc.).
+from tkinter import filedialog  # Module pour ouvrir des boîtes de dialogue de sélection de fichiers ou de dossiers.
+import matplotlib.pyplot as plt  # Bibliothèque pour générer des graphiques et visualiser des données.
+import pandas as pd  # Bibliothèque pour manipuler et analyser des données sous forme de tableaux (DataFrames).
+from contextlib import ExitStack  # Module pour gérer plusieurs contextes de manière sécurisée (fichiers, connexions, etc.).
+import math  # Module intégré pour des opérations mathématiques (fonctions trigonométriques, logarithmes, etc.).
+from datetime import datetime  # Module pour manipuler des dates et heures.
+import openpyxl  # Bibliothèque pour lire, écrire et manipuler des fichiers Excel au format `.xlsx`.
+import os  # Module pour interagir avec le système de fichiers et les chemins.
 
 conn = sqlite3.connect("rbvm.db")
 conn.execute("PRAGMA foreign_keys = ON;")
@@ -276,47 +276,57 @@ def parsing(vdr_data, kev_data) :
                 continue
 
 
-            #Initialisation du score d'exploitabilité
+            # Initialisation du score d'exploitabilité
             exp_score = None
-            #variables attack vector
+            
+            # variables attack vector
             AV_network = 0.85
             AV_adjacent = 0.62
             AV_local = 0.55
             AV_physical = 0.2
-            #variables attack complexity
+            
+            # variables attack complexity
             AC_low = 0.77
             AC_high = 0.44
-            #variables privileges_required
+            
+            # variables privileges_required
             PR_none = 0.85
             PR_low = 0.62
             PR_high = 0.27
-            #variables user interaction
+            
+            # variables user interaction
             UI_none = 0.85
             UI_required = 0.62
-            #variables confidencialité, intégrité, disponibilité
+            
+            # variables confidencialité, intégrité, disponibilité
             CIA_none = 0
             CIA_low = 0.22
             CIA_high = 0.56
-            #Définition de la valeur de l'attack vector
+            
+            # Définition de la valeur de l'attack vector
             if "N" in attack_vector:attack_vector = AV_network
             elif "A" in attack_vector:attack_vector = AV_adjacent
             elif "L" in attack_vector:attack_vector = AV_local
             elif "P" in attack_vector:attack_vector = AV_physical
             else: attack_vector = None
-            #Définition de la valeur de l'attack complexity
+            
+            # Définition de la valeur de l'attack complexity
             if "L" in attack_complexity:attack_complexity = AC_low
             elif "H" in attack_complexity:attack_complexity = AC_high
             else: attack_complexity = None
-            #Définition de la valeur des privileges required
+            
+            # Définition de la valeur des privileges required
             if "N" in privileges_required:privileges_required = PR_none
             elif "L" in privileges_required:privileges_required = PR_low
             elif "H" in privileges_required:privileges_required = PR_high
             else: privileges_required = None
-            #Définition de la valeur du user interaction
+           
+           # Définition de la valeur du user interaction
             if "N" in user_interaction:user_interaction = UI_none
             elif "R" in user_interaction:user_interaction = UI_required
             else: user_interaction = None
-            #Définition de la valeur confidencialité, intégrité, disponibilité
+           
+           # Définition de la valeur confidencialité, intégrité, disponibilité
             if "N" in confidentiality:confidentiality_num = CIA_none
             elif "L" in confidentiality:confidentiality_num = CIA_low
             elif "H" in confidentiality:confidentiality_num = CIA_high
@@ -986,7 +996,7 @@ if __name__ == "__main__":
     root.withdraw()  # Cache la fenêtre principale
     while True:
         print("Choisir une étape:\n")
-        print("1. Sélectionner un Vulnerability Disclosure Report (VDR) et le fichier Known Exploited Vulnerabilities Catalog (KEV)")
+        print("1. Sélectionner un ou plusieurs Vulnerability Disclosure Report (VDR) et le fichier Known Exploited Vulnerabilities Catalog (KEV)")
         print("------------------------------------")
         print("2. Lier un bien support (BS) [microservice] à une valeur métier (VM)")
         #import de masse VDR + import unique du catalogue KEV -> done
@@ -998,7 +1008,7 @@ if __name__ == "__main__":
         print("3. Générer le traitement statistique descriptif des risques concernant les bien supports (BS) [microservice]")
         print("4. Générer les boîtes à moustache VM")
         #en masse
-        #valeur métier (même que option6)
+        #valeur métier (même que option 6)
         #harmoniser CIA pas DIC
         #créer des vues pour voir les micro et vm qui ne sont pas liés dans 'jointure' et les afficher
         print("5. Quitter")
