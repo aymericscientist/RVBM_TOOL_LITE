@@ -1,3 +1,4 @@
+
 import json
 import sqlite3
 from tkinter import *
@@ -14,25 +15,20 @@ conn = sqlite3.connect("rbvm.db")
 conn.execute("PRAGMA foreign_keys = ON;")
 cur = conn.cursor()
 
-#Delete schema
-# cur.execute("""
-#     DROP SCHEMA IF EXISTS jaka CASCADE;
-# """)
-
-# Création du schéma VM et de la table VM.info avec contraintes d'unicité sur D, C et I
+# Création de la table valeurs_metiers avec contraintes d'unicité sur les propriétés C (confidentialité), I (intégrité) et A (disponibilité)
 cur.execute("""
       CREATE TABLE IF NOT EXISTS valeurs_metiers(
         name TEXT PRIMARY KEY,
-        A REAL,
         C REAL,
-        I REAL
-        );
+        I REAL,
+        A REAL      
+      );
 """)
 
-#Création de la table biens_supports dans le schéma jaka avec les infos parsées dans le fichier JSON
+# Création de la table biens_supports avec les informations en provenance du fichier VDR
 cur.execute("""
     CREATE TABLE IF NOT EXISTS biens_supports(
-        bs_id TEXT NOT NULL,
+        bs_id TEXT NOT NULL, 
         cve_id TEXT,
         bom_ref TEXT,
         composant_ref TEXT,
@@ -51,7 +47,7 @@ cur.execute("""
         KEV TEXT,
         C_heritage REAL,
         I_heritage REAL,
-        a_heritage REAL,
+        A_heritage REAL,
         PRIMARY KEY (bs_id, cve_id)
     );
 """)
@@ -65,8 +61,7 @@ cur.execute("""
 );
 """)
 
-# Mettre à jour les valeurs D, C, I dans biens_supports en fonction de la VM associée
-#à updater = done
+# Mettre à jour les valeurs C (confidentialité), I (intégrité) et A (disponibilité) dans biens_supports en fonction de la valeur métier associée
 def update_micro_heritage():
     cur.execute("""
         UPDATE biens_supports
@@ -83,7 +78,7 @@ def update_micro_heritage():
                 JOIN valeurs_metiers vm ON j.vm_id = vm.name
                 WHERE j.bs_id = biens_supports.bs_id
             ),
-            a_heritage = (
+            A_heritage = (
                 SELECT MAX(vm.A)
                 FROM jointure j
                 JOIN valeurs_metiers vm ON j.vm_id = vm.name
@@ -114,7 +109,7 @@ folder_VM_ORANGE = None
 folder_VM_ROUGE = None
 folder_VM_META = None
 
-# Dictionnaire permettant de stocker les microservices ainsi que leurs valeurs P1, P2, P3, P4, P5,
+# Dictionnaire permettant de stocker les biens supports ainsi que leurs valeurs P1, P2, P3, P4, P5,
 dicoListePx = {}
 
 dicoC = {'p5':[], 'p4':[], 'p3':[], 'p2':[], 'p1':[]}
@@ -281,7 +276,7 @@ def parsing(vdr_data, kev_data) :
                 continue
 
 
-            #Initialisation du score d"xploitabilité
+            #Initialisation du score d'exploitabilité
             exp_score = None
             #variables attack vector
             AV_network = 0.85
@@ -424,7 +419,7 @@ def option_5_calcul_scores():
             cve_id,
             C_heritage, 
             I_heritage, 
-            a_heritage, 
+            A_heritage, 
             impact_confidentiality, 
             impact_integrity, 
             impact_availability, 
@@ -446,7 +441,7 @@ def option_5_calcul_scores():
 
     # Traitement de chaque ligne
     for row in rows:
-        (bs_id, cve_id, C_heritage, I_heritage, a_heritage, 
+        (bs_id, cve_id, C_heritage, I_heritage, A_heritage, 
          impact_confidentiality, impact_integrity, impact_availability, 
          scope, attack_vector, attack_complexity, 
          privileges_required, user_interaction) = row
@@ -459,7 +454,7 @@ def option_5_calcul_scores():
         try:
             # Calcul du score environnemental
             env_score = calcul_score_environnemental(
-                a_heritage, I_heritage, C_heritage, 
+                A_heritage, I_heritage, C_heritage, 
                 impact_availability_num, impact_integrity_num, impact_confidentiality_num, 
                 scope, attack_vector, attack_complexity, 
                 privileges_required, user_interaction
@@ -1140,3 +1135,4 @@ if __name__ == "__main__":
             exit()
             cur.close()
             conn.close()
+
