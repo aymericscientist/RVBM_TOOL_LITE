@@ -1,95 +1,98 @@
-### Aperçu
+# Gestion des Biens Supports (BS) et des Valeurs Métiers (VM)
 
-Ce projet porte sur l'analyse, la gestion et la visualisation des vulnérabilités dans les actifs et les valeurs métiers associées. L'application se connecte à une base de données pour traiter et gérer les données, s'intègre au catalogue des vulnérabilités exploitées connues (KEV) et calcule les scores d'exploitabilité et environnementaux. Elle génère également des visualisations statistiques descriptives détaillées telles que des boîtes à moustaches pour évaluer les niveaux de risque.
-
----
-
-### Fonctionnalités
-
-1. **Configuration de la base de données**:
-   - Schéma `jaka` avec les tables `micro`, `vm` et `jointure`.
-   - `micro` stocke les données de vulnérabilité.
-   - `vm` contient les métadonnées sur les valeurs métiers.
-   - `jointure` relie les microservices aux valeurs métiers.
-
-2. **Analyse des données**:
-   - Traite les fichiers JSON VDR et KEV.
-   - Parse les vecteurs CVSS (v2 et v3).
-
-3. **Calcul des scores**:
-   - Calcule les scores d'exploitabilité basés sur les métriques CVSS.
-   - Détermine les scores environnementaux tenant compte des valeurs maximales de CIA (Confidentialité, Intégrité, Disponibilité).
-
-4. **Visualisation**:
-   - Génère des boîtes à moustaches pour les microservices et les valeurs métiers avec des catégories de sévérité (P1 à P5).
-
-5. **Analyse descriptive statistique**:
-   - Permet d'évaluer les risques liés aux vulnérabilités.
-
-6. **Mise à jour dynamique**:
-   - Met à jour la table `micro` avec les valeurs CIA héritées des valeurs métiers associées.
+Ce script Python permet d'analyser et de traiter des données issues de rapports de divulgation de vulnérabilités (VDR) ainsi que des catalogues de vulnérabilités exploitées (KEV). Il offre également des outils d'analyse statistique pour évaluer les risques des biens supports (BS) et des valeurs métiers (VM).
 
 ---
 
-### Prérequis
+## Fonctionnalités principales
 
-- Python (3.7+)
-- PostgreSQL (avec connecteur `psycopg2`)
-- Bibliothèques Python nécessaires:
-  - `json`
-  - `requests`
-  - `psycopg2`
-  - `tkinter`
-  - `matplotlib`
-  - `pandas`
+1. **Importation des données VDR et KEV :**
+   - Importez et parsez des fichiers JSON pour extraire des données liées aux vulnérabilités.
+   - Mettez à jour les bases de données SQLite en fonction des données importées.
+
+2. **Liaison BS et VM :**
+   - Associez des biens supports (BS) à des valeurs métiers (VM) en utilisant des fichiers Excel.
+   - Générez automatiquement les mises à jour de surface d'attaque pour les BS.
+
+3. **Calculs des scores de vulnérabilité :**
+   - Calculez les scores d'exploitabilité (exp_score) et environnementaux (env_score) basés sur les vecteurs CVSS.
+
+4. **Analyse statistique :**
+   - Générez des boîtes à moustache (boxplots) pour visualiser les scores de vulnérabilité selon leur sévérité (P1 à P5).
+
+5. **Base de données SQLite intégrée :**
+   - Gérez les données dans une base locale SQLite avec des tables optimisées (`biens_supports`, `valeurs_metiers`, et `jointure`).
 
 ---
 
-### Installation
+## Prérequis
 
-1. Clonez ce dépôt :
+### Modules Python nécessaires :
+- **json** : Manipulation des fichiers JSON.
+- **sqlite3** : Base de données intégrée.
+- **tkinter** : Interface graphique pour la sélection des fichiers.
+- **matplotlib** : Visualisation graphique.
+- **pandas** : Analyse des données tabulaires.
+- **openpyxl** : Manipulation des fichiers Excel (.xlsx).
+
+Installez les bibliothèques manquantes avec la commande :
+```bash
+pip install matplotlib pandas openpyxl
+```
+
+---
+
+## Structure du script
+
+### Tables principales
+
+1. **`valeurs_metiers` :**
+   - Contient les valeurs métiers avec leurs niveaux de confidentialité (C), d'intégrité (I) et de disponibilité (A).
+
+2. **`biens_supports` :**
+   - Stocke les données sur les biens supports (BS), y compris les scores CVSS, les vecteurs d'attaque et les scores calculés.
+
+3. **`jointure` :**
+   - Lie les biens supports (BS) aux valeurs métiers (VM).
+
+---
+
+## Utilisation
+
+1. **Exécution du script :**
+   Lancez le script dans votre environnement Python :
    ```bash
-   git clone <repository_url>
-   cd <repository_name>
-   ```
-2. Installez les dépendances :
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Configurez votre base de données PostgreSQL :
-   - Créez une base de données nommée `postgres`.
-   - Mettez à jour les informations d'identification de connexion dans le script si nécessaire.
-
----
-
-### Utilisation
-
-1. Lancez le script :
-   ```bash
-   python <script_name>.py
+   python rbvm.py
    ```
 
-2. Utilisez le menu interactif pour :
-   - Importer des fichiers JSON VDR et KEV.
-   - Mettre à jour l'héritage des vulnérabilités.
-   - Calculer les scores environnementaux.
-   - Générer des boîtes à moustaches.
+2. **Interface utilisateur :**
+   Une interface simple s'ouvre dans la console avec les options suivantes :
+   - **1 :** Importer les fichiers VDR et KEV.
+   - **2 :** Associer les BS aux VM et mettre à jour les surfaces d'attaque.
+   - **3 :** Générer les analyses statistiques descriptives.
+   - **4 :** Créer des boîtes à moustache pour visualiser les risques.
+   - **5 :** Quitter l'application.
 
-3. Résultats :
-   - Tables de base de données mises à jour.
-   - Boîtes à moustaches sauvegardées au format PNG dans le répertoire spécifié.
+3. **Sélection des fichiers :**
+   - L'interface graphique Tkinter permet de choisir les fichiers JSON et Excel nécessaires.
 
 ---
 
-### Fonctions Clés
+## Visualisation des données
 
-- **Analyse et Traitement:**
-  - Analyse les fichiers JSON VDR pour les vulnérabilités.
-  - Calcule les scores basés sur les vecteurs CVSS.
+Les boîtes à moustache générées se trouvent dans des sous-dossiers organisés par niveaux de risque :
+- `03_VERT/` : Faible risque.
+- `02_ORANGE/` : Risque modéré.
+- `01_ROUGE/` : Haut risque.
 
-- **Mises à jour des données:**
-  - Met à jour la table `micro` avec les scores et les données d'héritage.
+---
 
-- **Visualisation:**
-  - Génère des boîtes à moustaches mettant en évidence les niveaux de sévérité.
+## Exemple d'extension
 
+Vous pouvez adapter ou étendre le script pour ajouter d'autres visualisations ou méthodes de traitement des vulnérabilités.
+
+---
+
+## Contact
+
+Pour toute question ou amélioration, n'hésitez pas à contacter l'auteur.
