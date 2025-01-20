@@ -1,6 +1,4 @@
-
 import json  # Module pour lire, écrire et manipuler des données au format JSON.
-import sqlite3  # Module intégré pour interagir avec des bases de données SQLite.
 from tkinter import *  # Module pour créer des interfaces graphiques (fenêtres, boutons, etc.).
 from tkinter import filedialog  # Module pour ouvrir des boîtes de dialogue de sélection de fichiers ou de dossiers.
 import matplotlib.pyplot as plt  # Bibliothèque pour générer des graphiques et visualiser des données.
@@ -10,8 +8,13 @@ import math  # Module intégré pour des opérations mathématiques (fonctions t
 from datetime import datetime  # Module pour manipuler des dates et heures.
 import openpyxl  # Bibliothèque pour lire, écrire et manipuler des fichiers Excel au format `.xlsx`.
 import os  # Module pour interagir avec le système de fichiers et les chemins.
+from pysqlcipher3 import dbapi2 as sqlite3  # Module pour chiffrer et déchiffrer des bases de données SQLite avec SQLCipher.
 
 conn = sqlite3.connect("rbvm.db")
+# Demander à l'utilisateur de saisir la clé PRAGMA pour SQLCipher
+key = input("Entrez la clé pour SQLCipher: ")
+# Appliquer la clé PRAGMA chiffrée à la connexion SQLite
+conn.execute(f"PRAGMA key = '{key}';")
 conn.execute("PRAGMA foreign_keys = ON;")
 cur = conn.cursor()
 
@@ -238,7 +241,7 @@ def parsing(vdr_data, kev_data) :
     p3 = []
     p4 = []
     p5 = []
-    list_vulnerabilities = []  # Initialize here
+    list_vulnerabilities = []
     if 'vulnerabilities' in vdr_data:
         list_vulnerabilities = []
         for vulnerability in vdr_data['vulnerabilities']:
@@ -256,12 +259,8 @@ def parsing(vdr_data, kev_data) :
             method = vulnerability.get('ratings')[0].get('method')
             if "CVSSv2" in method:
                 continue
-            # if "CVSSv4" in method:
-            #     continue
             if "CVSSv3" in method:
                 attack_vector, attack_complexity, privileges_required, user_interaction, scope, confidentiality, integrity, availability = var_environnementales_CVSSv3(svector)
-            # elif "CVSSv2" in method:
-            #     attack_vector, attack_complexity, authentification, confidentiality, integrity, availability = var_environnementales_CVSSv2(svector)
             elif "other" in method:
                 attack_vector, attack_complexity, privileges_required, user_interaction, scope, confidentiality, integrity, availability = var_environnementales_other(svector)
                 vuln_other = CVE_others(
@@ -374,7 +373,6 @@ def parsing(vdr_data, kev_data) :
 
             list_vulnerabilities.append(vuln)
     
-    # Insert vulnerabilities for the current vdr_data
     for vuln in list_vulnerabilities:
         cur.execute("""
             INSERT INTO biens_supports(
@@ -498,8 +496,6 @@ def convert_cia_to_numeric(value):
 
 # Liaison du bs_id 'cpn-mab-échanges' à la VM 'Server' dans la table jointure
 def link(bs_id, vm_id):
-#rajouter un WHERE pour null pour éviter les doublons | créer une fonction indé qui permet la demande de prendre la valeur max des CIA requirements des vm
-# dès lors qu'un micro service a pls vm associées = done 
     cur.execute(f"""
     UPDATE jointure 
     SET vm_id = '{vm_id}'
@@ -574,7 +570,6 @@ def boite(boite_path):
                 FROM biens_supports 
                 WHERE bs_id = ? AND impact_{liste_dia[i]} != 'N';
             """, (b,))
-            #faire une triple boucle for en ajoutant dans un WHERE où confidentialité != N , intégrité != N et disponibilité != N
             data = cur.fetchall()
 
             p1 = []
@@ -608,7 +603,6 @@ def boite(boite_path):
                 [(f"{p1Vert}", "green"), (f"{p1Orange}", "orange"), (f"{p1Rouge}", "red")],
             ]
 
-            # Obtenir la date de creation de la boite pour affichage dans le nom du fichier cree
             now = datetime.now()
             date = now.strftime("%d.%m.%Y")
 
@@ -633,7 +627,6 @@ def boite(boite_path):
                 median.set_color('red')
                 median.set_linewidth(3)
 
-            # Supprimer les bordures droite et haute pour une meilleur visibilite
             ax.spines['right'].set_visible(False)
             ax.spines['top'].set_visible(False)
 
@@ -810,9 +803,7 @@ def boite_vm(vm_id, folder_path):
         if p1Rouge or p2Rouge != 0:
             plt.savefig(f'{folder_VM_ROUGE}\\{name}.png', format='png', dpi=300)
         plt.close(fig)
-    # Afficher le graphique
-    #plt.show()
-
+        
 def boite_vm_globale(folder_path):
     liste_dia = ["confidentiality", "integrity", "availability"]
 
@@ -842,8 +833,6 @@ def boite_vm_globale(folder_path):
         positions = [1, 2, 3, 4, 5]
         labels = ["P5", "P4", "P3", "P2", "P1"]
         data_filtree = [d if len(d) > 0 else [] for d in data]
-        # data_filtree = [d if isinstance(d, list) and len(d) > 0 else [] for d in data]
-
         nbVertOrangeRouge = [
             [(f"{p5Vert}", "green")],
             [(f"{p4Vert}", "green"), (f"{p4Orange}", "orange")],
@@ -938,7 +927,6 @@ def parse_excel():
     vm_id  TEXT,
     FOREIGN KEY (vm_id) REFERENCES valeurs_metiers(name));
                 """)
-    # Insert results into the jointure table
     for vm_id, bs_ids in results.items():
         for bs_id in bs_ids:
             cur.execute("""
@@ -953,11 +941,11 @@ def parse_excel():
 def convert_level(value):
     if not value:
         return 0
-    if "E" in value:       # Elevée
+    if "E" in value:
         return 1.5
-    elif "M" in value:     # Moyenne
+    elif "M" in value:
         return 1
-    elif "L" in value:     # Faible
+    elif "L" in value:
         return 0.5
     return 0
 
@@ -982,7 +970,6 @@ def parse_vm():
 
         results[valeur_meiter] = (D, I, C)
     
-    # Insérer les valeurs dans valeurs_metiers
     for valeur_meiter, (D, I, C) in results.items():
         cur.execute("""
             INSERT INTO valeurs_metiers (name, A, C, I)
@@ -993,24 +980,18 @@ def parse_vm():
 
 if __name__ == "__main__":
     root = Tk()
-    root.withdraw()  # Cache la fenêtre principale
+    root.withdraw()
     while True:
         print("Choisir une étape:\n")
         print("1. Sélectionner un ou plusieurs Vulnerability Disclosure Report (VDR) et le fichier Known Exploited Vulnerabilities Catalog (KEV)")
         print("------------------------------------")
         print("2. Lier un bien support (BS) [microservice] à une valeur métier (VM)")
-        #import de masse VDR + import unique du catalogue KEV -> done
         print(" Mettre à jour la surface d'attaque d'un bien support (BS) [microservice]")
-        #passe en backend (clés primaires clés étrangères dans 'jointure') -> done
         print("Affecter les valeurs DIC à un bien support (BS) [microservice] en fonction de la valeur métier (VM)")
         print("Calculer le score environnemental de chaque bien support (BS) [microservice]")
         print("------------------------------------")
         print("3. Générer le traitement statistique descriptif des risques concernant les bien supports (BS) [microservice]")
         print("4. Générer les boîtes à moustache VM")
-        #en masse
-        #valeur métier (même que option 6)
-        #harmoniser CIA pas DIC
-        #créer des vues pour voir les micro et vm qui ne sont pas liés dans 'jointure' et les afficher
         print("5. Quitter")
 
         option = input("Etape: ")
@@ -1052,35 +1033,16 @@ if __name__ == "__main__":
                 print("No .json files selected or files are empty.")
                 exit()
 
-            # Liste pour stocker les CVE parsées
-
             for vdr_data in vdr_data_list:
                 # Accès aux données du VDR.json et parsing des variables
                 bs_id = vdr_data.get('metadata', {}).get('component', {}).get('name')
                 serialNumber = vdr_data.get('serialNumber')
-                #ajouter le bs_id dans jointure
-                # cur.execute(f"""
-                #     INSERT INTO jointure (bs_id)
-                #     VALUES (?);
-                # """, (bs_id,))
-
                 parsing(vdr_data, kev_data)
 
-            # Création de la VM 'Server' dans la table VM
-            # cur.execute("""
-            #     INSERT INTO jaka.vm (name, A, C, I)
-            #     VALUES ('Server', 1, 0, 1),
-            #         ('Client', 3, 1, 0),
-            #         ('Network', 1, 1, 4),
-            #         ('Test', 1, 1.5, 1.5);
-            # """)
-
-            # Drop les views
             cur.execute("DROP VIEW IF EXISTS impact_confidentiality;")
             cur.execute("DROP VIEW IF EXISTS impact_integrity;")
             cur.execute("DROP VIEW IF EXISTS impact_availability;")
 
-            # Crée les views
             cur.execute("""
                 CREATE VIEW impact_confidentiality AS
                 SELECT * FROM biens_supports
@@ -1101,13 +1063,6 @@ if __name__ == "__main__":
 
             conn.commit()
 
-            #changer bom_ref en composant_ref = done
-            #arrondir aux décimales 10^-1 les valeur de exp_score = done
-            #quand un microservice est lié à pls VM, prendre la valeur max des CIA requirements des VM (si C vaut 3 dans la vm network et 2 dans la vm client, alors C vaut 3 pour le microservice)
-            # |
-            # |
-            # -->done
-            
         elif option == "2":
             print("Sélectionner le fichier excel contenant la liste des valeurs métiers (VM)")
             parse_vm()
@@ -1122,7 +1077,6 @@ if __name__ == "__main__":
             
         elif option == "3":
             print("Affichage boîte à moustache")      
-            #dans boite et boite_vm, j'ai besoin de générer pour chaque bien support 3 fichiers de boîte à moustache, chacune qui s'assure que impact_availability != N; impact_confidentiality != N et impact_integrity != N      
             boite_path = filedialog.askdirectory()
             if not boite_path:
                 print("No folder selected.")
@@ -1142,7 +1096,6 @@ if __name__ == "__main__":
             boite(boite_path)
 
         elif option == "5":
-            exit()
             cur.close()
             conn.close()
-
+            exit()
