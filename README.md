@@ -59,6 +59,14 @@ pip install matplotlib pandas openpyxl
 
 ## Utilisation
 
+0. **Windows: Compiler le script en un fichier exécutable:**
+   Cette partie est optionnelle et seulement pour les utilisateurs Windows.
+   Assurez-vous d'avoir télécharger "fond.png" avant d'exécuter la commande :
+   ```bash
+   pyinstaller --noconfirm --onefile --windowed --add-data "path/to/fond.png:." "path/to/script.py"
+   ```
+   Laissez bien les guillemets.
+
 1. **Exécution du script :**
    Lancez le script dans votre environnement Python :
    ```bash
