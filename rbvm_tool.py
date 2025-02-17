@@ -8,11 +8,11 @@ import math  # Module intégré pour des opérations mathématiques (fonctions t
 from datetime import datetime  # Module pour manipuler des dates et heures.
 import openpyxl  # Bibliothèque pour lire, écrire et manipuler des fichiers Excel au format `.xlsx`.
 import os  # Module pour interagir avec le système de fichiers et les chemins.
-from pysqlcipher3 import dbapi2 as sqlite3  # Module pour chiffrer et déchiffrer des bases de données SQLite avec SQLCipher.
+import sqlite3  # Utilisation du module standard SQLite3 avec SQLCipher
 
 conn = sqlite3.connect("rbvm.db")
 # Demander à l'utilisateur de saisir la clé PRAGMA pour SQLCipher
-key = input("Entrez la clé pour SQLCipher: ")
+key = input("Entrez votre passphrase pour chiffrer la BDD : ")
 # Appliquer la clé PRAGMA chiffrée à la connexion SQLite
 conn.execute(f"PRAGMA key = '{key}';")
 conn.execute("PRAGMA foreign_keys = ON;")
@@ -503,9 +503,12 @@ def link(bs_id, vm_id):
 ;
 """)
 
-# Fonction permettant d'ouvrir le fivhier KEV pour lecture
+# Fonction permettant d'ouvrir le fichier KEV pour lecture
 def open_kev():
-    file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
+    file_path = filedialog.askopenfilename(
+        title="Sélectionner le fichier KEV",
+        filetypes=[("JSON files", "*.json")]
+    )
     if (file_path):
         with open(file_path, 'r') as file:
             kev = json.load(file)
