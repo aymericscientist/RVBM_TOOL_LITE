@@ -9,14 +9,27 @@ from datetime import datetime  # Module pour manipuler des dates et heures.
 import openpyxl  # Bibliothèque pour lire, écrire et manipuler des fichiers Excel au format `.xlsx`.
 import os  # Module pour interagir avec le système de fichiers et les chemins.
 import sqlite3  # Utilisation du module standard SQLite3 avec SQLCipher
+from tabulate import tabulate 
+from tkinter import Tk
 
+#### Préparation des prérequis du programme ####
+
+# Connexion à la base de données SQLite chiffrée avec SQLCipher
 conn = sqlite3.connect("rbvm.db")
+
 # Demander à l'utilisateur de saisir la clé PRAGMA pour SQLCipher
-key = input("Entrez votre passphrase pour chiffrer la BDD : ")
+key = input("Entrez votre passphrase pour chiffrer la BDD : ").strip()
+
+# Effacer la console après la saisie
+os.system("cls" if os.name == "nt" else "clear")
+
 # Appliquer la clé PRAGMA chiffrée à la connexion SQLite
-conn.execute(f"PRAGMA key = '{key}';")
+conn.execute(f"PRAGMA key = \"{key}\";")
 conn.execute("PRAGMA foreign_keys = ON;")
+
+# Création du curseur
 cur = conn.cursor()
+
 
 # Création de la table valeurs_metiers avec contraintes d'unicité sur les propriétés C (confidentialité), I (intégrité) et A (disponibilité)
 cur.execute("""
@@ -28,6 +41,8 @@ cur.execute("""
       );
 """)
 
+
+#### ? ####
 # Création de la table biens_supports avec les informations en provenance du fichier VDR
 cur.execute("""
     CREATE TABLE IF NOT EXISTS biens_supports(
@@ -64,6 +79,8 @@ cur.execute("""
 );
 """)
 
+
+#### ? #### 
 # Mettre à jour les valeurs C (confidentialité), I (intégrité) et A (disponibilité) dans biens_supports en fonction de la valeur métier associée
 def update_micro_heritage():
     cur.execute("""
@@ -91,7 +108,6 @@ def update_micro_heritage():
 
 
 ##### VARIABLES GLOBALES #####
-
 attack_vector = None
 attack_complexity = None
 privileges_required = None
@@ -198,7 +214,7 @@ def calcul_score_exploitabilité(attack_vector, attack_complexity, privileges_re
     exp_score = (8.22 * attack_vector * attack_complexity * privileges_required * user_interaction) / 3.9 * 4
     return round(exp_score, 1)
 
-# Fonction permettant de trier le nombre de CVE en vert, orange et rouge en fonction de chaque P(x)
+# Fonction permettant de trier le nombre de CVE en vert, orange et rouge (VOR) en fonction de chaque P(x)
 def triAffichageVOR(p1, p2, p3, p4, p5, p1Vert, p1Orange, p1Rouge, p2Vert, p2Orange, p2Rouge, p3Vert, p3Orange, p4Vert, p4Orange, p5Vert):
     for score in p1:
         if 0 <= score <= 0.4:
@@ -981,54 +997,42 @@ def parse_vm():
         """, (valeur_meiter, D, C, I))
     conn.commit()
 
+# Définition du menu central du programme
+def afficher_menu():
+    menu_options = [
+        ["1", "Sélectionner un ou plusieurs Vulnerability Disclosure Report (VDR) et le fichier Known Exploited Vulnerabilities (KEV) Catalog "],
+        ["2", "Lier un bien support (BS) à une valeur métier (VM)"],
+        ["3", "Affecter les valeurs DIC à un bien support (BS) en fonction de la valeur métier (VM)"],
+        ["4", "Générer le traitement statistique des risques"],
+        ["5", "Générer les boîtes à moustache VM"],
+        ["6", "Quitter"]
+    ]
+
+    print(tabulate(menu_options, tablefmt="fancy_grid", colalign=("center", "left")))
+
 if __name__ == "__main__":
     root = Tk()
     root.withdraw()
+    
     while True:
-        print("Choisir une étape:\n")
-        print("1. Sélectionner un ou plusieurs Vulnerability Disclosure Report (VDR) et le fichier Known Exploited Vulnerabilities Catalog (KEV)")
-        print("------------------------------------")
-        print("2. Lier un bien support (BS) [microservice] à une valeur métier (VM)")
-        print(" Mettre à jour la surface d'attaque d'un bien support (BS) [microservice]")
-        print("Affecter les valeurs DIC à un bien support (BS) [microservice] en fonction de la valeur métier (VM)")
-        print("Calculer le score environnemental de chaque bien support (BS) [microservice]")
-        print("------------------------------------")
-        print("3. Générer le traitement statistique descriptif des risques concernant les bien supports (BS) [microservice]")
-        print("4. Générer les boîtes à moustache VM")
-        print("5. Quitter")
+        afficher_menu()
+        #choix = input("\nChoissiez une option :")
+        #if choix == "5" :
+            #print("\nFermeture du programme.")
+            #break
+        #print("Choisir une étape:\n")
+        #print("1. Sélectionner un ou plusieurs Vulnerability Disclosure Report (VDR) et le fichier Known Exploited Vulnerabilities Catalog (KEV)")
+        #print("------------------------------------")
+        #print("2. Lier un bien support (BS) [microservice] à une valeur métier (VM)")
+        #print(" Mettre à jour la surface d'attaque d'un bien support (BS) [microservice]")
+        #print("Affecter les valeurs DIC à un bien support (BS) [microservice] en fonction de la valeur métier (VM)")
+        #print("Calculer le score environnemental de chaque bien support (BS) [microservice]")
+        #print("------------------------------------")
+        #print("3. Générer le traitement statistique descriptif des risques concernant les bien supports (BS) [microservice]")
+        #print("4. Générer les boîtes à moustache VM")
+        #print("5. Quitter")
 
-        option = input("Etape: ")
-        if option == "4":
-            if not dicoListePx:
-                print("Please run option 2 first to populate data.")
-                continue
-            folder_path = filedialog.askdirectory()
-            if not folder_path:
-                print("No folder selected.")
-                continue
-            subfolder_VERT = os.path.join(folder_path, "03_VERT")
-            subfolder_ORANGE = os.path.join(folder_path, "02_ORANGE")
-            subfolder_ROUGE = os.path.join(folder_path, "01_ROUGE")
-            subfolder_VM_META = os.path.join(folder_path, "04_Meta_représentation_des_VM")
-            folder_VM_VERT = subfolder_VERT
-            folder_VM_ORANGE = subfolder_ORANGE
-            folder_VM_ROUGE = subfolder_ROUGE
-            folder_VM_META = subfolder_VM_META
-            if not os.path.exists(subfolder_VERT):
-                os.makedirs(subfolder_VERT, exist_ok=True)
-            if not os.path.exists(subfolder_ORANGE):
-                os.makedirs(subfolder_ORANGE, exist_ok=True)
-            if not os.path.exists(subfolder_ROUGE):
-                os.makedirs(subfolder_ROUGE, exist_ok=True)
-            if not os.path.exists(subfolder_VM_META):
-                os.makedirs(subfolder_VM_META, exist_ok=True)
-            cur.execute("SELECT DISTINCT vm_id FROM jointure;")
-            v = cur.fetchall()
-            for vid in v:
-                vid = vid[0]
-                boite_vm(vid, folder_path)
-            boite_vm_globale(folder_path)
-            
+        option = input("Etape: ")     
         if option == "1":
             vdr_data_list = open_files()
             kev_data = open_kev()
@@ -1096,8 +1100,39 @@ if __name__ == "__main__":
                 os.makedirs(subfolder_ORANGE, exist_ok=True)
             if not os.path.exists(subfolder_ROUGE):
                 os.makedirs(subfolder_ROUGE, exist_ok=True)
-            boite(boite_path)
-
+            boite(boite_path)      
+        
+        elif option == "4":
+            if not dicoListePx:
+                print("Please run option 2 first to populate data.")
+                continue
+            folder_path = filedialog.askdirectory()
+            if not folder_path:
+                print("No folder selected.")
+                continue
+            subfolder_VERT = os.path.join(folder_path, "03_VERT")
+            subfolder_ORANGE = os.path.join(folder_path, "02_ORANGE")
+            subfolder_ROUGE = os.path.join(folder_path, "01_ROUGE")
+            subfolder_VM_META = os.path.join(folder_path, "04_Meta_représentation_des_VM")
+            folder_VM_VERT = subfolder_VERT
+            folder_VM_ORANGE = subfolder_ORANGE
+            folder_VM_ROUGE = subfolder_ROUGE
+            folder_VM_META = subfolder_VM_META
+            if not os.path.exists(subfolder_VERT):
+                os.makedirs(subfolder_VERT, exist_ok=True)
+            if not os.path.exists(subfolder_ORANGE):
+                os.makedirs(subfolder_ORANGE, exist_ok=True)
+            if not os.path.exists(subfolder_ROUGE):
+                os.makedirs(subfolder_ROUGE, exist_ok=True)
+            if not os.path.exists(subfolder_VM_META):
+                os.makedirs(subfolder_VM_META, exist_ok=True)
+            cur.execute("SELECT DISTINCT vm_id FROM jointure;")
+            v = cur.fetchall()
+            for vid in v:
+                vid = vid[0]
+                boite_vm(vid, folder_path)
+            boite_vm_globale(folder_path)
+           
         elif option == "5":
             cur.close()
             conn.close()
