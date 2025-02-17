@@ -5,11 +5,23 @@
 import sys
 import time
 import requests
+import json
+import os
+import math
+import sqlite3
+import secrets
+import string
+import matplotlib.pyplot as plt
+import pandas as pd
+import openpyxl
+from datetime import datetime
+from tabulate import tabulate
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QLabel, QLineEdit, QPushButton, 
                              QFileDialog, QVBoxLayout, QWidget, QGroupBox, QHBoxLayout, 
-                             QProgressBar, QRadioButton, QMessageBox, QGridLayout)
+                             QProgressBar, QRadioButton, QMessageBox, QInputDialog)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
-
+from tkinter import filedialog, Tk
+import re
 
 
 # Thread pour la conversion
@@ -27,18 +39,88 @@ class RBVMTool(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # Demande de passphrase AVANT d'initialiser l'interface graphique
-        self.passphrase, ok = QInputDialog.getText(None, "Chiffrement BDD","Veuillez saisir votre passphrase pour chiffrer la BDD puis appuyer sur Entrée :", QLineEdit.Password)
-
-        if not ok or not self.passphrase:
-            print("\nOpération annulée")
-            sys.exit()  # Quitte le programme si l'utilisateur annule
-
+        self.passphrase = self.get_secure_passphrase() 
         print("\nPassphrase saisie avec succès")
 
         self.setWindowTitle("Risk Based Vulnerability Management (RBVM) Tool")
         self.setGeometry(200, 100, 700, 800)
         self.initUI()
+
+    def get_secure_passphrase(self):
+        """ Demande une passphrase avec option de génération automatique """
+        while True:
+            passphrase, ok = self.ask_for_passphrase()
+
+            if not ok:  
+                print("\nOpération annulée")
+                sys.exit()
+
+            if self.is_passphrase_valid(passphrase):
+                print("\nPassphrase saisie avec succès")
+                return passphrase
+            else:
+                QMessageBox.warning(None, "Passphrase invalide", 
+                    "Votre passphrase ne respecte pas les exigences !\n\n"
+                    "Elle doit contenir au moins :\n"
+                    "- 8 caractères\n"
+                    "- 1 majuscule\n"
+                    "- 1 chiffre\n"
+                    "- 1 caractère spécial")
+
+    def ask_for_passphrase(self):
+        """ Boîte de dialogue améliorée avec option de génération automatique """
+        dialog = QMessageBox()
+        dialog.setWindowTitle("Chiffrement BDD obligatoire")
+        dialog.setText("Veuillez saisir une passphrase forte ou en générer une automatiquement.")
+        
+        passphrase_input = QLineEdit()
+        passphrase_input.setEchoMode(QLineEdit.Password)
+        
+        generate_button = QPushButton("Générer une passphrase forte")
+        copy_button = QPushButton("Copier")
+
+        layout = QVBoxLayout()
+        layout.addWidget(passphrase_input)
+        layout.addWidget(generate_button)
+        layout.addWidget(copy_button)
+
+        container = QWidget()
+        container.setLayout(layout)
+        dialog.layout().addWidget(container)
+
+        generate_button.clicked.connect(lambda: self.generate_and_set_passphrase(passphrase_input))
+        copy_button.clicked.connect(lambda: self.copy_to_clipboard(passphrase_input.text()))
+
+        ok_button = dialog.addButton("OK", QMessageBox.AcceptRole)
+        cancel_button = dialog.addButton("Annuler", QMessageBox.RejectRole)
+
+        dialog.exec_()
+
+        if dialog.clickedButton() == ok_button:
+            return passphrase_input.text(), True
+        else:
+            return "", False
+
+    def generate_and_set_passphrase(self, input_field):
+        """ Génère une passphrase forte et l'affiche """
+        new_passphrase = self.generate_secure_passphrase()
+        input_field.setText(new_passphrase)
+
+    def copy_to_clipboard(self, text):
+        """ Copie la passphrase générée dans le presse-papier """
+        clipboard = QApplication.clipboard()
+        clipboard.setText(text)
+        QMessageBox.information(None, "Copié !", "Passphrase copiée dans le presse-papier.")
+
+    def generate_secure_passphrase(self, length=20):
+        """ Génère une passphrase forte """
+        characters = string.ascii_letters + string.digits + "@$!%*?&"
+        return ''.join(secrets.choice(characters) for _ in range(length))
+
+    def is_passphrase_valid(self, passphrase):
+        """ Vérifie que la passphrase respecte les exigences """
+        return bool(re.match(r'^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$', passphrase))
+
 
     def initUI(self):
         """ Initialise l'interface utilisateur """
