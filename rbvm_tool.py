@@ -1,18 +1,260 @@
+# -*- coding: utf-8 -*-
 
-import json  # Module pour lire, écrire et manipuler des données au format JSON.
-import sqlite3  # Module intégré pour interagir avec des bases de données SQLite.
-from tkinter import *  # Module pour créer des interfaces graphiques (fenêtres, boutons, etc.).
-from tkinter import filedialog  # Module pour ouvrir des boîtes de dialogue de sélection de fichiers ou de dossiers.
-import matplotlib.pyplot as plt  # Bibliothèque pour générer des graphiques et visualiser des données.
-import pandas as pd  # Bibliothèque pour manipuler et analyser des données sous forme de tableaux (DataFrames).
-from contextlib import ExitStack  # Module pour gérer plusieurs contextes de manière sécurisée (fichiers, connexions, etc.).
-import math  # Module intégré pour des opérations mathématiques (fonctions trigonométriques, logarithmes, etc.).
-from datetime import datetime  # Module pour manipuler des dates et heures.
-import openpyxl  # Bibliothèque pour lire, écrire et manipuler des fichiers Excel au format `.xlsx`.
-import os  # Module pour interagir avec le système de fichiers et les chemins.
+## ==== PARTIE N°1 Définition de l'IHM ==== ##
 
+import sys
+import time
+import requests
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QLabel, QLineEdit, QPushButton, 
+                             QFileDialog, QVBoxLayout, QWidget, QGroupBox, QHBoxLayout, 
+                             QProgressBar, QRadioButton, QMessageBox, QGridLayout)
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
+
+
+
+# Thread pour la conversion
+class ConversionThread(QThread):
+    progress = pyqtSignal(int)  # Signal pour mettre à jour la barre de progression
+
+    def run(self):
+        """ Simule un processus de conversion """
+        for i in range(101):  # Simulation de progression 0% à 100%
+            time.sleep(0.05)  # Pause pour simuler le travail
+            self.progress.emit(i)  # Envoie la progression
+
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QInputDialog, QLineEdit, QPushButton, QGroupBox, QHBoxLayout, QRadioButton, QProgressBar
+class RBVMTool(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        # Demande de passphrase AVANT d'initialiser l'interface graphique
+        self.passphrase, ok = QInputDialog.getText(None, "Chiffrement BDD","Veuillez saisir votre passphrase pour chiffrer la BDD puis appuyer sur Entrée :", QLineEdit.Password)
+
+        if not ok or not self.passphrase:
+            print("\nOpération annulée")
+            sys.exit()  # Quitte le programme si l'utilisateur annule
+
+        print("\nPassphrase saisie avec succès")
+
+        self.setWindowTitle("Risk Based Vulnerability Management (RBVM) Tool")
+        self.setGeometry(200, 100, 700, 800)
+        self.initUI()
+
+    def initUI(self):
+        """ Initialise l'interface utilisateur """
+        central_widget = QWidget()
+        main_layout = QVBoxLayout()
+
+        # Titre principal
+        title = QLabel("Risk Based Vulnerability Management (RBVM) Tool", self)
+        title.setStyleSheet("font-size: 20px; font-weight: bold; color: #444;")
+
+        # Intégrer les besoins de sécurité et sûreté des valeurs métiers
+        security_group = QGroupBox("1ère étape : Charger (excel) les valeurs métiers ainsi que leurs besoins de sécurité et sûreté [template_prerequis DIC.xlsx]")
+        security_layout = QHBoxLayout()
+        self.security_input = QLineEdit(self)
+        security_browse = QPushButton("Téléverser", self)
+        security_browse.clicked.connect(self.browse_security)
+        security_layout.addWidget(self.security_input)
+        security_layout.addWidget(security_browse)
+        security_group.setLayout(security_layout)
+
+        # Intégrer la matrice Bien Support - Valeur Métier
+        matrix_group = QGroupBox("2ème étape : Charger la matrice (excel) associant les biens supports aux valeurs métiers [template_matrice_vm_bs.xlsx]")
+        matrix_layout = QHBoxLayout()
+        self.matrix_input = QLineEdit(self)
+        matrix_browse = QPushButton("Téléverser", self)
+        matrix_browse.clicked.connect(self.browse_matrix)
+        matrix_layout.addWidget(self.matrix_input)
+        matrix_layout.addWidget(matrix_browse)
+        matrix_group.setLayout(matrix_layout)
+
+        # Charger VDR
+        vdr_group = QGroupBox("3ème étape : Charger tous les Vulnerability Disclosure Report (VDR) concernant l'exhaustivité des biens supports")
+        vdr_layout = QHBoxLayout()
+        self.vdr_input = QLineEdit(self)
+        vdr_browse = QPushButton("Téléverser", self)
+        vdr_browse.clicked.connect(self.browse_vdr)
+        vdr_layout.addWidget(self.vdr_input)
+        vdr_layout.addWidget(vdr_browse)
+        vdr_group.setLayout(vdr_layout)
+
+        # Charger le fichier KEV Catalog
+        kev_group = QGroupBox("4ème étape : Charger le fichier Known Exploited Vulnerabilities (KEV) Catalog du Cybersecurity & Infrastructure Security Agency (CISA)")
+        kev_layout = QVBoxLayout()
+        
+        self.automatic_download = QRadioButton("Télécharger automatiquement depuis CISA [par défaut]", self)
+        self.local_file_option = QRadioButton("Sélectionner un fichier local (JSON/CSV)", self)
+        self.automatic_download.setChecked(True)  # Option par défaut : Télécharger automatiquement depuis CISA
+
+        kev_file_layout = QHBoxLayout()
+        self.kev_input = QLineEdit(self)
+        kev_browse = QPushButton("Téléverser", self)
+        kev_browse.clicked.connect(self.browse_kev)
+        kev_file_layout.addWidget(self.kev_input)
+        kev_file_layout.addWidget(kev_browse)
+
+        kev_layout.addWidget(self.automatic_download)
+        kev_layout.addWidget(self.local_file_option)
+        kev_layout.addLayout(kev_file_layout)
+        kev_group.setLayout(kev_layout)
+
+        # Barre de progression
+        self.progress_bar = QProgressBar(self)
+        self.progress_bar.setAlignment(Qt.AlignCenter)
+        self.progress_bar.setValue(0)  # Initialisé à 0%
+
+        # Bouton de conversion
+        self.convert_button = QPushButton("Générer les représentations concernant les risques liés aux biens supports puis aux valeurs métiers", self)
+        self.convert_button.setStyleSheet("background-color: #28a745; color: white; font-size: 14px; padding: 8px;")
+        #self.convert_button.clicked.connect(self.start_conversion)
+
+        # Ajout au layout principal
+        main_layout.addWidget(title)
+        main_layout.addWidget(security_group) # Charger besoins de sécurité et sûreté
+        main_layout.addWidget(matrix_group) # Charger association VM & BS
+        main_layout.addWidget(vdr_group) # Sélectionner les VDR
+        main_layout.addWidget(kev_group)# Charger KEV
+        main_layout.addWidget(self.progress_bar)
+        main_layout.addWidget(self.convert_button)
+
+        # Appliquer le layout principal à la fenêtre
+        central_widget.setLayout(main_layout)
+        self.setCentralWidget(central_widget)
+
+        # Appliquer le style CSS
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #f4f4f4;
+            }
+            QLabel {
+                font-size: 14px;
+                color: #333;
+            }
+            QPushButton {
+                background-color: #0078D7;
+                color: white;
+                font-size: 14px;
+                padding: 6px;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #005BB5;
+            }
+            QLineEdit {
+                border: 1px solid #ccc;
+                padding: 5px;
+                border-radius: 5px;
+                background-color: white;
+            }
+            QProgressBar {
+                border: 1px solid #bbb;
+                padding: 3px;
+                border-radius: 5px;
+                background-color: #fff;
+                text-align: center;
+            }
+        """)
+
+    def browse_vdr(self):
+        """ Ouvre une boîte de dialogue pour sélectionner un ou plusieurs fichiers VDR """
+        file_paths, _ = QFileDialog.getOpenFileNames(self, "Sélectionner un ou plusieurs VDR", "", "JSON Files (*.json);;All Files (*)")
+        if file_paths:
+            self.vdr_input.setText(", ".join(file_paths))
+
+    def browse_kev(self):
+        """ Ouvre une boîte de dialogue pour sélectionner un fichier KEV local (JSON/CSV) """
+        file_path, _ = QFileDialog.getOpenFileName(self, "Sélectionner un fichier KEV", "", "JSON/CSV Files (*.json *.csv);;All Files (*)")
+        if file_path:
+            self.kev_input.setText(file_path)
+
+    def browse_matrix(self):
+        """ Ouvre une boîte de dialogue pour sélectionner un fichier Excel contenant la matrice BS-VM """
+        file_path, _ = QFileDialog.getOpenFileName(self, "Sélectionner un fichier Excel", "", "Excel Files (*.xlsx *.xls);;All Files (*)")
+        if file_path:
+            self.matrix_input.setText(file_path)
+
+    def browse_security(self):
+        """ Ouvre une boîte de dialogue pour sélectionner un fichier Excel contenant les besoins de sécurité """
+        file_path, _ = QFileDialog.getOpenFileName(self, "Sélectionner un fichier Excel", "", "Excel Files (*.xlsx *.xls);;All Files (*)")
+        if file_path:
+            self.security_input.setText(file_path)
+
+    def download_kev(self):
+        """ Télécharge automatiquement le fichier KEV depuis CISA """
+        url = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+        file_path = "known_exploited_vulnerabilities.json"
+
+        try:
+            response = requests.get(url, stream=True)
+            total_size = int(response.headers.get('content-length', 0))
+
+            with open(file_path, "wb") as file:
+                downloaded_size = 0
+                for chunk in response.iter_content(1024):
+                    if chunk:
+                        file.write(chunk)
+                        downloaded_size += len(chunk)
+                        self.progress_bar.setValue(int((downloaded_size / total_size) * 100))
+
+            self.kev_input.setText(file_path)
+            QMessageBox.information(self, "Succès", "Le fichier KEV a été téléchargé avec succès.")
+            self.progress_bar.setValue(100)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Échec du téléchargement : {e}")
+            self.progress_bar.setValue(0)
+
+    # Fonction permettant d'ouvrir le fichier KEV pour lecture
+def open_kev():
+    file_path = filedialog.askopenfilename(
+        title="Sélectionner le fichier KEV",
+        filetypes=[("JSON files", "*.json")]
+    )
+    if (file_path):
+        with open(file_path, 'r') as file:
+            kev = json.load(file)
+        return kev
+    return None
+
+    def start_conversion(self):
+        """ Démarre la conversion avec la barre de progression """
+        self.progress_bar.setValue(0)  # Reset la barre
+        self.convert_button.setEnabled(False)  # Désactive le bouton pendant la conversion
+
+        # Lancer le thread de conversion
+        self.thread = ConversionThread()
+        self.thread.progress.connect(self.update_progress)
+        self.thread.start()
+
+    def update_progress(self, value):
+        """ Met à jour la barre de progression """
+        self.progress_bar.setValue(value)
+        if value == 100:
+            self.convert_button.setEnabled(True)  # Réactiver le bouton
+
+#  Lancement de l'application
+if __name__ == '__main__':
+    import sys
+    app = QApplication(sys.argv)
+    fenetre = RBVMTool()
+    fenetre.show()
+    sys.exit(app.exec_())  # Assure que la boucle d'événements tourne
+
+## ==== PARTIE N°2 Préparation des prérequis du programme ==== ##
+import sqlite3  # Utilisation du module standard SQLite3 avec SQLCipher
+import os  # Module pour interagir avec le système de fichiers et les chemins
+import sys
+from PyQt5.QtWidgets import QApplication, QInputDialog, QLineEdit, QMainWindow, QLabel, QVBoxLayout, QWidget
+
+# Connexion à la base de données SQLite chiffrée avec SQLCipher
 conn = sqlite3.connect("rbvm.db")
-conn.execute("PRAGMA foreign_keys = ON;")
+
+# Appliquer la clé PRAGMA chiffrée à la connexion SQLite
+conn.execute(f"PRAGMA passphrase = \"{passphrase}\";")
+conn.execute("PRAGMA foreign_passphrase = ON;")
+
+# Création du curseur
 cur = conn.cursor()
 
 # Création de la table valeurs_metiers avec contraintes d'unicité sur les propriétés C (confidentialité), I (intégrité) et A (disponibilité)
@@ -25,7 +267,7 @@ cur.execute("""
       );
 """)
 
-# Création de la table biens_supports avec les informations en provenance du fichier VDR
+# Création de la table biens_supports
 cur.execute("""
     CREATE TABLE IF NOT EXISTS biens_supports(
         bs_id TEXT NOT NULL, 
@@ -52,6 +294,7 @@ cur.execute("""
     );
 """)
 
+# Création de la table jointure permettant d'associer toute valeur métier à tout bien support (n;n)
 cur.execute("""
     CREATE TABLE IF NOT EXISTS jointure(
     num    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,6 +304,25 @@ cur.execute("""
 );
 """)
 
+
+import json  # Module pour lire, écrire et manipuler des données au format JSON.
+from tkinter import *  # Module pour créer des interfaces graphiques (fenêtres, boutons, etc.).
+from tkinter import filedialog  # Module pour ouvrir des boîtes de dialogue de sélection de fichiers ou de dossiers.
+import matplotlib.pyplot as plt  # Bibliothèque pour générer des graphiques et visualiser des données.
+import pandas as pd  # Bibliothèque pour manipuler et analyser des données sous forme de tableaux (DataFrames).
+from contextlib import ExitStack  # Module pour gérer plusieurs contextes de manière sécurisée (fichiers, connexions, etc.).
+import math  # Module intégré pour des opérations mathématiques (fonctions trigonométriques, logarithmes, etc.).
+from datetime import datetime  # Module pour manipuler des dates et heures.
+import openpyxl  # Bibliothèque pour lire, écrire et manipuler des fichiers Excel au format `.xlsx`.
+from tabulate import tabulate 
+from tkinter import Tk
+
+
+#### ? ####
+
+
+
+#### ? #### 
 # Mettre à jour les valeurs C (confidentialité), I (intégrité) et A (disponibilité) dans biens_supports en fonction de la valeur métier associée
 def update_micro_heritage():
     cur.execute("""
@@ -88,7 +350,6 @@ def update_micro_heritage():
 
 
 ##### VARIABLES GLOBALES #####
-
 attack_vector = None
 attack_complexity = None
 privileges_required = None
@@ -195,7 +456,7 @@ def calcul_score_exploitabilité(attack_vector, attack_complexity, privileges_re
     exp_score = (8.22 * attack_vector * attack_complexity * privileges_required * user_interaction) / 3.9 * 4
     return round(exp_score, 1)
 
-# Fonction permettant de trier le nombre de CVE en vert, orange et rouge en fonction de chaque P(x)
+# Fonction permettant de trier le nombre de CVE en vert, orange et rouge (VOR) en fonction de chaque P(x)
 def triAffichageVOR(p1, p2, p3, p4, p5, p1Vert, p1Orange, p1Rouge, p2Vert, p2Orange, p2Rouge, p3Vert, p3Orange, p4Vert, p4Orange, p5Vert):
     for score in p1:
         if 0 <= score <= 0.4:
@@ -238,7 +499,7 @@ def parsing(vdr_data, kev_data) :
     p3 = []
     p4 = []
     p5 = []
-    list_vulnerabilities = []  # Initialize here
+    list_vulnerabilities = []
     if 'vulnerabilities' in vdr_data:
         list_vulnerabilities = []
         for vulnerability in vdr_data['vulnerabilities']:
@@ -256,12 +517,8 @@ def parsing(vdr_data, kev_data) :
             method = vulnerability.get('ratings')[0].get('method')
             if "CVSSv2" in method:
                 continue
-            # if "CVSSv4" in method:
-            #     continue
             if "CVSSv3" in method:
                 attack_vector, attack_complexity, privileges_required, user_interaction, scope, confidentiality, integrity, availability = var_environnementales_CVSSv3(svector)
-            # elif "CVSSv2" in method:
-            #     attack_vector, attack_complexity, authentification, confidentiality, integrity, availability = var_environnementales_CVSSv2(svector)
             elif "other" in method:
                 attack_vector, attack_complexity, privileges_required, user_interaction, scope, confidentiality, integrity, availability = var_environnementales_other(svector)
                 vuln_other = CVE_others(
@@ -374,7 +631,6 @@ def parsing(vdr_data, kev_data) :
 
             list_vulnerabilities.append(vuln)
     
-    # Insert vulnerabilities for the current vdr_data
     for vuln in list_vulnerabilities:
         cur.execute("""
             INSERT INTO biens_supports(
@@ -498,23 +754,12 @@ def convert_cia_to_numeric(value):
 
 # Liaison du bs_id 'cpn-mab-échanges' à la VM 'Server' dans la table jointure
 def link(bs_id, vm_id):
-#rajouter un WHERE pour null pour éviter les doublons | créer une fonction indé qui permet la demande de prendre la valeur max des CIA requirements des vm
-# dès lors qu'un micro service a pls vm associées = done 
     cur.execute(f"""
     UPDATE jointure 
     SET vm_id = '{vm_id}'
     WHERE bs_id = '{bs_id}' AND vm_id IS NULL
 ;
 """)
-
-# Fonction permettant d'ouvrir le fivhier KEV pour lecture
-def open_kev():
-    file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
-    if (file_path):
-        with open(file_path, 'r') as file:
-            kev = json.load(file)
-        return kev
-    return None
 
 # Fonction permettant de trier dans le Px associé les scores d'exploitabilité si NON KEV
 def definitionPx(p2, p3, p4, p5, scoreEnv, scoreExp):
@@ -574,7 +819,6 @@ def boite(boite_path):
                 FROM biens_supports 
                 WHERE bs_id = ? AND impact_{liste_dia[i]} != 'N';
             """, (b,))
-            #faire une triple boucle for en ajoutant dans un WHERE où confidentialité != N , intégrité != N et disponibilité != N
             data = cur.fetchall()
 
             p1 = []
@@ -608,7 +852,6 @@ def boite(boite_path):
                 [(f"{p1Vert}", "green"), (f"{p1Orange}", "orange"), (f"{p1Rouge}", "red")],
             ]
 
-            # Obtenir la date de creation de la boite pour affichage dans le nom du fichier cree
             now = datetime.now()
             date = now.strftime("%d.%m.%Y")
 
@@ -633,7 +876,6 @@ def boite(boite_path):
                 median.set_color('red')
                 median.set_linewidth(3)
 
-            # Supprimer les bordures droite et haute pour une meilleur visibilite
             ax.spines['right'].set_visible(False)
             ax.spines['top'].set_visible(False)
 
@@ -810,9 +1052,7 @@ def boite_vm(vm_id, folder_path):
         if p1Rouge or p2Rouge != 0:
             plt.savefig(f'{folder_VM_ROUGE}\\{name}.png', format='png', dpi=300)
         plt.close(fig)
-    # Afficher le graphique
-    #plt.show()
-
+        
 def boite_vm_globale(folder_path):
     liste_dia = ["confidentiality", "integrity", "availability"]
 
@@ -842,8 +1082,6 @@ def boite_vm_globale(folder_path):
         positions = [1, 2, 3, 4, 5]
         labels = ["P5", "P4", "P3", "P2", "P1"]
         data_filtree = [d if len(d) > 0 else [] for d in data]
-        # data_filtree = [d if isinstance(d, list) and len(d) > 0 else [] for d in data]
-
         nbVertOrangeRouge = [
             [(f"{p5Vert}", "green")],
             [(f"{p4Vert}", "green"), (f"{p4Orange}", "orange")],
@@ -938,7 +1176,6 @@ def parse_excel():
     vm_id  TEXT,
     FOREIGN KEY (vm_id) REFERENCES valeurs_metiers(name));
                 """)
-    # Insert results into the jointure table
     for vm_id, bs_ids in results.items():
         for bs_id in bs_ids:
             cur.execute("""
@@ -953,11 +1190,11 @@ def parse_excel():
 def convert_level(value):
     if not value:
         return 0
-    if "E" in value:       # Elevée
+    if "E" in value:
         return 1.5
-    elif "M" in value:     # Moyenne
+    elif "M" in value:
         return 1
-    elif "L" in value:     # Faible
+    elif "L" in value:
         return 0.5
     return 0
 
@@ -982,7 +1219,6 @@ def parse_vm():
 
         results[valeur_meiter] = (D, I, C)
     
-    # Insérer les valeurs dans valeurs_metiers
     for valeur_meiter, (D, I, C) in results.items():
         cur.execute("""
             INSERT INTO valeurs_metiers (name, A, C, I)
@@ -991,30 +1227,112 @@ def parse_vm():
         """, (valeur_meiter, D, C, I))
     conn.commit()
 
+# Définition du menu central du programme
+def afficher_menu():
+    menu_options = [
+        ["1", "Sélectionner un ou plusieurs Vulnerability Disclosure Report (VDR) et le fichier Known Exploited Vulnerabilities (KEV) Catalog "],
+        ["2", "Lier un bien support (BS) à une valeur métier (VM)"],
+        ["3", "Affecter les valeurs DIC à un bien support (BS) en fonction de la valeur métier (VM)"],
+        ["4", "Générer le traitement statistique des risques concernant les BS"],
+        ["5", "Générer les boîtes à moustache VM"],
+        ["6", "Quitter"]
+    ]
+
+    print(tabulate(menu_options, tablefmt="fancy_grid", colalign=("center", "left")))
+
 if __name__ == "__main__":
     root = Tk()
-    root.withdraw()  # Cache la fenêtre principale
+    root.withdraw()
+    
     while True:
-        print("Choisir une étape:\n")
-        print("1. Sélectionner un ou plusieurs Vulnerability Disclosure Report (VDR) et le fichier Known Exploited Vulnerabilities Catalog (KEV)")
-        print("------------------------------------")
-        print("2. Lier un bien support (BS) [microservice] à une valeur métier (VM)")
-        #import de masse VDR + import unique du catalogue KEV -> done
-        print(" Mettre à jour la surface d'attaque d'un bien support (BS) [microservice]")
-        #passe en backend (clés primaires clés étrangères dans 'jointure') -> done
-        print("Affecter les valeurs DIC à un bien support (BS) [microservice] en fonction de la valeur métier (VM)")
-        print("Calculer le score environnemental de chaque bien support (BS) [microservice]")
-        print("------------------------------------")
-        print("3. Générer le traitement statistique descriptif des risques concernant les bien supports (BS) [microservice]")
-        print("4. Générer les boîtes à moustache VM")
-        #en masse
-        #valeur métier (même que option 6)
-        #harmoniser CIA pas DIC
-        #créer des vues pour voir les micro et vm qui ne sont pas liés dans 'jointure' et les afficher
-        print("5. Quitter")
+        afficher_menu()
+        #choix = input("\nChoissiez une option :")
+        #if choix == "5" :
+            #print("\nFermeture du programme.")
+            #break
+        #print("Choisir une étape:\n")
+        #print("1. Sélectionner un ou plusieurs Vulnerability Disclosure Report (VDR) et le fichier Known Exploited Vulnerabilities Catalog (KEV)")
+        #print("------------------------------------")
+        #print("2. Lier un bien support (BS) [microservice] à une valeur métier (VM)")
+        #print(" Mettre à jour la surface d'attaque d'un bien support (BS) [microservice]")
+        #print("Affecter les valeurs DIC à un bien support (BS) [microservice] en fonction de la valeur métier (VM)")
+        #print("Calculer le score environnemental de chaque bien support (BS) [microservice]")
+        #print("------------------------------------")
+        #print("3. Générer le traitement statistique descriptif des risques concernant les bien supports (BS) [microservice]")
+        #print("4. Générer les boîtes à moustache VM")
+        #print("5. Quitter")
 
-        option = input("Etape: ")
-        if option == "4":
+        option = input("Etape: ")     
+        if option == "1":
+            vdr_data_list = open_files()
+            kev_data = open_kev()
+            if not vdr_data_list:
+                print("No .json files selected or files are empty.")
+                exit()
+
+            for vdr_data in vdr_data_list:
+                # Accès aux données du VDR.json et parsing des variables
+                bs_id = vdr_data.get('metadata', {}).get('component', {}).get('name')
+                serialNumber = vdr_data.get('serialNumber')
+                parsing(vdr_data, kev_data)
+
+            cur.execute("DROP VIEW IF EXISTS impact_confidentiality;")
+            cur.execute("DROP VIEW IF EXISTS impact_integrity;")
+            cur.execute("DROP VIEW IF EXISTS impact_availability;")
+
+            cur.execute("""
+                CREATE VIEW impact_confidentiality AS
+                SELECT * FROM biens_supports
+                WHERE impact_confidentiality != 'N';
+            """)
+
+            cur.execute("""
+                CREATE VIEW impact_integrity AS
+                SELECT * FROM biens_supports
+                WHERE impact_integrity != 'N';
+            """)
+
+            cur.execute("""
+                CREATE VIEW impact_availability AS
+                SELECT * FROM biens_supports
+                WHERE impact_availability != 'N';
+            """)
+
+            conn.commit()
+
+        elif option == "2":
+            print("Sélectionner le fichier excel contenant la liste des valeurs métiers (VM)")
+            parse_vm()
+            print("Sélectionner le fichier excel contenant la liste des biens supports (BS) associés à une valeur métier (VM)")
+            parse_excel()
+
+            update_micro_heritage()
+            print("Valeurs D, C, I mises à jour dans biens_supports en fonction de la VM associée.")            
+            option_5_calcul_scores()
+            print("Scores environnementaux mis à jour.")
+            conn.commit()
+            
+        elif option == "3":
+            print("Affichage boîte à moustache")      
+            boite_path = filedialog.askdirectory()
+            if not boite_path:
+                print("No folder selected.")
+                continue
+            subfolder_VERT = os.path.join(boite_path, "03_VERT")
+            subfolder_ORANGE = os.path.join(boite_path, "02_ORANGE")
+            subfolder_ROUGE = os.path.join(boite_path, "01_ROUGE")
+            folder_BS_VERT = subfolder_VERT
+            folder_BS_ORANGE = subfolder_ORANGE
+            folder_BS_ROUGE = subfolder_ROUGE
+            if not os.path.exists(subfolder_VERT):
+                os.makedirs(subfolder_VERT, exist_ok=True)
+            if not os.path.exists(subfolder_ORANGE):
+                os.makedirs(subfolder_ORANGE, exist_ok=True)
+            if not os.path.exists(subfolder_ROUGE):
+                os.makedirs(subfolder_ROUGE, exist_ok=True)
+            boite(boite_path)      
+        
+        elif option == "4":
             if not dicoListePx:
                 print("Please run option 2 first to populate data.")
                 continue
@@ -1044,105 +1362,8 @@ if __name__ == "__main__":
                 vid = vid[0]
                 boite_vm(vid, folder_path)
             boite_vm_globale(folder_path)
-            
-        if option == "1":
-            vdr_data_list = open_files()
-            kev_data = open_kev()
-            if not vdr_data_list:
-                print("No .json files selected or files are empty.")
-                exit()
-
-            # Liste pour stocker les CVE parsées
-
-            for vdr_data in vdr_data_list:
-                # Accès aux données du VDR.json et parsing des variables
-                bs_id = vdr_data.get('metadata', {}).get('component', {}).get('name')
-                serialNumber = vdr_data.get('serialNumber')
-                #ajouter le bs_id dans jointure
-                # cur.execute(f"""
-                #     INSERT INTO jointure (bs_id)
-                #     VALUES (?);
-                # """, (bs_id,))
-
-                parsing(vdr_data, kev_data)
-
-            # Création de la VM 'Server' dans la table VM
-            # cur.execute("""
-            #     INSERT INTO jaka.vm (name, A, C, I)
-            #     VALUES ('Server', 1, 0, 1),
-            #         ('Client', 3, 1, 0),
-            #         ('Network', 1, 1, 4),
-            #         ('Test', 1, 1.5, 1.5);
-            # """)
-
-            # Drop les views
-            cur.execute("DROP VIEW IF EXISTS impact_confidentiality;")
-            cur.execute("DROP VIEW IF EXISTS impact_integrity;")
-            cur.execute("DROP VIEW IF EXISTS impact_availability;")
-
-            # Crée les views
-            cur.execute("""
-                CREATE VIEW impact_confidentiality AS
-                SELECT * FROM biens_supports
-                WHERE impact_confidentiality != 'N';
-            """)
-
-            cur.execute("""
-                CREATE VIEW impact_integrity AS
-                SELECT * FROM biens_supports
-                WHERE impact_integrity != 'N';
-            """)
-
-            cur.execute("""
-                CREATE VIEW impact_availability AS
-                SELECT * FROM biens_supports
-                WHERE impact_availability != 'N';
-            """)
-
-            conn.commit()
-
-            #changer bom_ref en composant_ref = done
-            #arrondir aux décimales 10^-1 les valeur de exp_score = done
-            #quand un microservice est lié à pls VM, prendre la valeur max des CIA requirements des VM (si C vaut 3 dans la vm network et 2 dans la vm client, alors C vaut 3 pour le microservice)
-            # |
-            # |
-            # -->done
-            
-        elif option == "2":
-            print("Sélectionner le fichier excel contenant la liste des valeurs métiers (VM)")
-            parse_vm()
-            print("Sélectionner le fichier excel contenant la liste des biens supports (BS) associés à une valeur métier (VM)")
-            parse_excel()
-
-            update_micro_heritage()
-            print("Valeurs D, C, I mises à jour dans biens_supports en fonction de la VM associée.")            
-            option_5_calcul_scores()
-            print("Scores environnementaux mis à jour.")
-            conn.commit()
-            
-        elif option == "3":
-            print("Affichage boîte à moustache")      
-            #dans boite et boite_vm, j'ai besoin de générer pour chaque bien support 3 fichiers de boîte à moustache, chacune qui s'assure que impact_availability != N; impact_confidentiality != N et impact_integrity != N      
-            boite_path = filedialog.askdirectory()
-            if not boite_path:
-                print("No folder selected.")
-                continue
-            subfolder_VERT = os.path.join(boite_path, "03_VERT")
-            subfolder_ORANGE = os.path.join(boite_path, "02_ORANGE")
-            subfolder_ROUGE = os.path.join(boite_path, "01_ROUGE")
-            folder_BS_VERT = subfolder_VERT
-            folder_BS_ORANGE = subfolder_ORANGE
-            folder_BS_ROUGE = subfolder_ROUGE
-            if not os.path.exists(subfolder_VERT):
-                os.makedirs(subfolder_VERT, exist_ok=True)
-            if not os.path.exists(subfolder_ORANGE):
-                os.makedirs(subfolder_ORANGE, exist_ok=True)
-            if not os.path.exists(subfolder_ROUGE):
-                os.makedirs(subfolder_ROUGE, exist_ok=True)
-            boite(boite_path)
-
+           
         elif option == "5":
-            exit()
             cur.close()
             conn.close()
-
+            exit()
