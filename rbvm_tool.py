@@ -35,7 +35,21 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from tkinter import filedialog, Tk
 import re
-
+import json  # Module pour lire, écrire et manipuler des données au format JSON.
+from tkinter import *  # Module pour créer des interfaces graphiques (fenêtres, boutons, etc.).
+from tkinter import (
+    filedialog,
+)  # Module pour ouvrir des boîtes de dialogue de sélection de fichiers ou de dossiers.
+import matplotlib.pyplot as plt  # Bibliothèque pour générer des graphiques et visualiser des données.
+import pandas as pd  # Bibliothèque pour manipuler et analyser des données sous forme de tableaux (DataFrames).
+from contextlib import (
+    ExitStack,
+)  # Module pour gérer plusieurs contextes de manière sécurisée (fichiers, connexions, etc.).
+import math  # Module intégré pour des opérations mathématiques (fonctions trigonométriques, logarithmes, etc.).
+from datetime import datetime  # Module pour manipuler des dates et heures.
+import openpyxl  # Bibliothèque pour lire, écrire et manipuler des fichiers Excel au format `.xlsx`.
+from tabulate import tabulate
+from tkinter import Tk
 
 # Thread pour la conversion
 class ConversionThread(QThread):
@@ -46,7 +60,6 @@ class ConversionThread(QThread):
         for i in range(101):  # Simulation de progression 0% à 100%
             time.sleep(0.05)  # Pause pour simuler le travail
             self.progress.emit(i)  # Envoie la progression --> à supprimer dans le code final
-
 
 class RBVMTool(QMainWindow):
     def __init__(self):
@@ -314,7 +327,7 @@ class RBVMTool(QMainWindow):
             "JSON Files (*.json);;All Files (*)",
         )
         if file_paths:
-            self.vdr_input.setText(", ".join(file_paths))
+            self.vdr_input.setText(", ".join(file_paths)) # Intégrer les VDR
 
     def browse_kev(self):
         """Ouvre une boîte de dialogue pour sélectionner un fichier KEV local (JSON/CSV)"""
@@ -325,7 +338,7 @@ class RBVMTool(QMainWindow):
             "JSON/CSV Files (*.json *.csv);;All Files (*)",
         )
         if file_path:
-            self.kev_input.setText(file_path)
+            self.kev_input.setText(file_path) # Intégrer le KEV Catalog
 
     def browse_matrix(self):
         """Ouvre une boîte de dialogue pour sélectionner un fichier Excel contenant la matrice BS-VM"""
@@ -336,7 +349,7 @@ class RBVMTool(QMainWindow):
             "Excel Files (*.xlsx *.xls);;All Files (*)",
         )
         if file_path:
-            self.matrix_input.setText(file_path)
+            self.matrix_input.setText(file_path) # Intégrer la matrice valeur métier - bien support
 
     def browse_security(self):
         """Ouvre une boîte de dialogue pour sélectionner un fichier Excel contenant les besoins de sécurité"""
@@ -347,7 +360,7 @@ class RBVMTool(QMainWindow):
             "Excel Files (*.xlsx *.xls);;All Files (*)",
         )
         if file_path:
-            self.security_input.setText(file_path)
+            self.security_input.setText(file_path) # Intégrer les besoins de sécurité et sûreté des valeurs métiers
 
     def download_kev(self):
         """Télécharge automatiquement le fichier KEV depuis CISA"""
@@ -376,20 +389,17 @@ class RBVMTool(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Échec du téléchargement : {e}")
-            self.progress_bar.setValue(0)
+            self.progress_bar.setValue(0) # Téléchargement autonome du KEV Catalog sur le site du CISA
 
-    # Fonction permettant d'ouvrir le fichier KEV pour lecture
-
-
-def open_kev():
-    file_path = filedialog.askopenfilename(
-        title="Sélectionner le fichier KEV", filetypes=[("JSON files", "*.json")]
-    )
-    if file_path:
-        with open(file_path, "r") as file:
-            kev = json.load(file)
-        return kev
-    return None
+    def open_kev():
+        file_path = filedialog.askopenfilename(
+            title="Sélectionner le fichier KEV", filetypes=[("JSON files", "*.json")]
+        )
+        if file_path:
+            with open(file_path, "r") as file:
+                kev = json.load(file)
+            return kev
+        return None # Intégrer le KEV Catalog en manuel
 
     def start_conversion(self):
         """Démarre la conversion avec la barre de progression"""
@@ -401,49 +411,29 @@ def open_kev():
         # Lancer le thread de conversion
         self.thread = ConversionThread()
         self.thread.progress.connect(self.update_progress)
-        self.thread.start()
+        self.thread.start() #--> fonction à supprimer au profit des fonctions de base
 
     def update_progress(self, value):
         """Met à jour la barre de progression"""
         self.progress_bar.setValue(value)
         if value == 100:
-            self.convert_button.setEnabled(True)  # Réactiver le bouton
+            self.convert_button.setEnabled(True) # Code concernant l'IHM
 
-
-#  Lancement de l'application
 if __name__ == "__main__":
     import sys
 
     app = QApplication(sys.argv)
     fenetre = RBVMTool()
     fenetre.show()
-    sys.exit(app.exec_())  # Assure que la boucle d'événements tourne
+    sys.exit(app.exec_())  #  Lancement de l'application
 
-## ==== PARTIE N°2 Préparation des prérequis du programme ==== ##
-import sqlite3  # Utilisation du module standard SQLite3 avec SQLCipher
-import os  # Module pour interagir avec le système de fichiers et les chemins
-import sys
-from PyQt5.QtWidgets import (
-    QApplication,
-    QInputDialog,
-    QLineEdit,
-    QMainWindow,
-    QLabel,
-    QVBoxLayout,
-    QWidget,
-)
+## ==== PARTIE N°2 Préparation des prérequis BDD du programme ==== ##
+conn = sqlite3.connect("rbvm.db") # Connexion à la base de données SQLite chiffrée avec SQLCipher
+conn.execute(f'PRAGMA passphrase = "{passphrase}";') # Appliquer la clé PRAGMA chiffrée à la connexion SQLite
+conn.execute("PRAGMA foreign_passphrase = ON;") # Appliquer la clé PRAGMA chiffrée à la connexion SQLite
+cur = conn.cursor() # Création du curseur
 
-# Connexion à la base de données SQLite chiffrée avec SQLCipher
-conn = sqlite3.connect("rbvm.db")
-
-# Appliquer la clé PRAGMA chiffrée à la connexion SQLite
-conn.execute(f'PRAGMA passphrase = "{passphrase}";')
-conn.execute("PRAGMA foreign_passphrase = ON;")
-
-# Création du curseur
-cur = conn.cursor()
-
-# Création de la table valeurs_metiers avec contraintes d'unicité sur les propriétés C (confidentialité), I (intégrité) et A (disponibilité)
+# Création des tables
 cur.execute(
     """
       CREATE TABLE IF NOT EXISTS valeurs_metiers(
@@ -453,9 +443,7 @@ cur.execute(
         A REAL      
       );
 """
-)
-
-# Création de la table biens_supports
+) # Création de la table valeurs_metiers avec contraintes d'unicité sur les propriétés C (confidentialité), I (intégrité) et A (disponibilité)
 cur.execute(
     """
     CREATE TABLE IF NOT EXISTS biens_supports(
@@ -482,9 +470,7 @@ cur.execute(
         PRIMARY KEY (bs_id, cve_id)
     );
 """
-)
-
-# Création de la table jointure permettant d'associer toute valeur métier à tout bien support (n;n)
+) # Création de la table biens_supports
 cur.execute(
     """
     CREATE TABLE IF NOT EXISTS jointure(
@@ -494,57 +480,7 @@ cur.execute(
     FOREIGN KEY (vm_id) REFERENCES valeurs_metiers(name)
 );
 """
-)
-
-
-import json  # Module pour lire, écrire et manipuler des données au format JSON.
-from tkinter import *  # Module pour créer des interfaces graphiques (fenêtres, boutons, etc.).
-from tkinter import (
-    filedialog,
-)  # Module pour ouvrir des boîtes de dialogue de sélection de fichiers ou de dossiers.
-import matplotlib.pyplot as plt  # Bibliothèque pour générer des graphiques et visualiser des données.
-import pandas as pd  # Bibliothèque pour manipuler et analyser des données sous forme de tableaux (DataFrames).
-from contextlib import (
-    ExitStack,
-)  # Module pour gérer plusieurs contextes de manière sécurisée (fichiers, connexions, etc.).
-import math  # Module intégré pour des opérations mathématiques (fonctions trigonométriques, logarithmes, etc.).
-from datetime import datetime  # Module pour manipuler des dates et heures.
-import openpyxl  # Bibliothèque pour lire, écrire et manipuler des fichiers Excel au format `.xlsx`.
-from tabulate import tabulate
-from tkinter import Tk
-
-
-#### ? ####
-
-
-#### ? ####
-# Mettre à jour les valeurs C (confidentialité), I (intégrité) et A (disponibilité) dans biens_supports en fonction de la valeur métier associée
-def update_micro_heritage():
-    cur.execute(
-        """
-        UPDATE biens_supports
-        SET 
-            C_heritage = (
-                SELECT MAX(vm.C)
-                FROM jointure j
-                JOIN valeurs_metiers vm ON j.vm_id = vm.name
-                WHERE j.bs_id = biens_supports.bs_id
-            ),
-            I_heritage = (
-                SELECT MAX(vm.I)
-                FROM jointure j
-                JOIN valeurs_metiers vm ON j.vm_id = vm.name
-                WHERE j.bs_id = biens_supports.bs_id
-            ),
-            A_heritage = (
-                SELECT MAX(vm.A)
-                FROM jointure j
-                JOIN valeurs_metiers vm ON j.vm_id = vm.name
-                WHERE j.bs_id = biens_supports.bs_id
-            );
-    """
-    )
-
+) # Création de la table jointure permettant d'associer toute valeur métier à tout bien support (n;n)
 
 ##### VARIABLES GLOBALES #####
 attack_vector = None
@@ -576,10 +512,41 @@ dicoA = {"p5": [], "p4": [], "p3": [], "p2": [], "p1": []}
 
 dicoGlobal = {"confidentiality": dicoC, "integrity": dicoI, "availability": dicoA}
 
+
+# Mettre cette def dans le cadre procédural du programme
+def update_micro_heritage():
+    cur.execute(
+        """
+        UPDATE biens_supports
+        SET 
+            C_heritage = (
+                SELECT MAX(vm.C)
+                FROM jointure j
+                JOIN valeurs_metiers vm ON j.vm_id = vm.name
+                WHERE j.bs_id = biens_supports.bs_id
+            ),
+            I_heritage = (
+                SELECT MAX(vm.I)
+                FROM jointure j
+                JOIN valeurs_metiers vm ON j.vm_id = vm.name
+                WHERE j.bs_id = biens_supports.bs_id
+            ),
+            A_heritage = (
+                SELECT MAX(vm.A)
+                FROM jointure j
+                JOIN valeurs_metiers vm ON j.vm_id = vm.name
+                WHERE j.bs_id = biens_supports.bs_id
+            );
+    """
+    ) # Mettre à jour les valeurs C (confidentialité), I (intégrité) et A (disponibilité) dans biens_supports en fonction de la valeur métier associée
+
+
+
+
 ##### CLASSES ET LISTES #####
 
 
-# Classe permettant de définir les CVE
+
 class CVE:
     def __init__(
         self,
@@ -618,7 +585,7 @@ class CVE:
         self.kev = kev
 
     def __repr__(self):
-        return f"ID: {self.id} \nBom-ref: {self.composant_ref} \nDescription: {self.description} \nSeverity: {self.severity} \nScore CVSS: {self.score_CVSS} \nAV: {self.attack_vector} \nAC: {self.attack_complexity} \nPR: {self.privileges_required} \nUI: {self.user_interaction} \nS: {self.scope} \nC: {self.confidentiality} \nI: {self.integrity} \nA: {self.availability} \nScore Exp: {self.exp_score} \nScore Env: {self.env_score} \nKeV: {self.kev}\n\n"
+        return f"ID: {self.id} \nBom-ref: {self.composant_ref} \nDescription: {self.description} \nSeverity: {self.severity} \nScore CVSS: {self.score_CVSS} \nAV: {self.attack_vector} \nAC: {self.attack_complexity} \nPR: {self.privileges_required} \nUI: {self.user_interaction} \nS: {self.scope} \nC: {self.confidentiality} \nI: {self.integrity} \nA: {self.availability} \nScore Exp: {self.exp_score} \nScore Env: {self.env_score} \nKeV: {self.kev}\n\n" # Classe permettant de définir les CVE
 
 
 class CVE_others:
@@ -635,7 +602,7 @@ class CVE_others:
 ##### FONCTIONS #####
 
 
-# Fonction permettant de parser les variables environnementales à partir du "vector" du VDR (CVSS3.0)
+# Famille de fonctions pour parser les variables environnementales à partir du VDR (CVSS X)
 def var_environnementales_CVSSv3(svector):
     attack_vector = svector[12]
     attack_complexity = svector[17]
@@ -654,10 +621,7 @@ def var_environnementales_CVSSv3(svector):
         confidentiality,
         integrity,
         availability,
-    )
-
-
-# Fonction permettant de parser les variables environnementales à partir du "vector" du VDR (CVSS2.0)
+    ) # Fonction permettant de parser les variables environnementales à partir du "vector" du VDR (CVSS3.0)
 def var_environnementales_CVSSv2(svector):
     attack_vector = svector[4]
     attack_complexity = svector[9]
@@ -672,10 +636,7 @@ def var_environnementales_CVSSv2(svector):
         confidentiality,
         integrity,
         availability,
-    )
-
-
-# Fonction permettant de parser les variables environnementales à partir du "vector" du VDR (CVSS non spécifié)
+    ) # Fonction permettant de parser les variables environnementales à partir du "vector" du VDR (CVSS2.0)
 def var_environnementales_other(svector):
     attack_vector = "None"
     attack_complexity = "None"
@@ -694,10 +655,10 @@ def var_environnementales_other(svector):
         confidentiality,
         integrity,
         availability,
-    )
+    ) # Fonction permettant de parser les variables environnementales à partir du "vector" du VDR (CVSS non spécifié)
 
 
-# Fonction permettant de calculer le score d'exploitabilité
+
 def calcul_score_exploitabilité(
     attack_vector, attack_complexity, privileges_required, user_interaction
 ):
@@ -713,10 +674,9 @@ def calcul_score_exploitabilité(
         / 3.9
         * 4
     )
-    return round(exp_score, 1)
+    return round(exp_score, 1) # Fonction permettant de calculer le score d'exploitabilité CVSS 3.1
 
 
-# Fonction permettant de trier le nombre de CVE en vert, orange et rouge (VOR) en fonction de chaque P(x)
 def triAffichageVOR(
     p1,
     p2,
@@ -778,10 +738,10 @@ def triAffichageVOR(
         p4Vert,
         p4Orange,
         p5Vert,
-    )
+    ) # Fonction permettant de trier le nombre de CVE en vert, orange et rouge (VOR) en fonction de chaque P(x)
 
 
-# Fonction de decomposition analytique du VDR
+
 def parsing(vdr_data, kev_data):
     p1 = []
     p2 = []
@@ -1014,10 +974,10 @@ def parsing(vdr_data, kev_data):
                 vuln.exp_score,
                 vuln.kev,
             ),
-        )
+        ) # Fonction de decomposition analytique du VDR
 
 
-# Fonction permettant de calculer le score environnemental
+
 def calcul_score_environnemental(
     disponibiliteVM,
     integriteVM,
@@ -1097,7 +1057,7 @@ def calcul_score_environnemental(
             min(1.08 * (modified_impact + modified_exploitability), 10), 2
         )
 
-    return env_score
+    return env_score # Fonction permettant de calculer le score environnemental CVSS 3.1
 
 
 def option_5_calcul_scores():
@@ -1194,7 +1154,7 @@ def option_5_calcul_scores():
             )
 
 
-# Fonctions de conversion des valeurs d'impact CIA en valeurs numériques
+
 def convert_cia_to_numeric(value):
     # Convertit les valeurs d'impact CIA en valeurs numériques
     if value == "N":
@@ -1203,7 +1163,7 @@ def convert_cia_to_numeric(value):
         return 0.22  # Low
     elif value == "H":
         return 0.56  # High
-    return 0
+    return 0 # Fonctions de conversion des valeurs d'impact CIA en valeurs numériques
 
 
 # Liaison du bs_id 'cpn-mab-échanges' à la VM 'Server' dans la table jointure
@@ -1218,7 +1178,7 @@ def link(bs_id, vm_id):
     )
 
 
-# Fonction permettant de trier dans le Px associé les scores d'exploitabilité si NON KEV
+
 def definitionPx(p2, p3, p4, p5, scoreEnv, scoreExp):
     if 9.0 <= scoreEnv <= 10.0:
         p2.append(scoreExp)
@@ -1231,10 +1191,10 @@ def definitionPx(p2, p3, p4, p5, scoreEnv, scoreExp):
     else:
         pass
 
-    return (p2, p3, p4, p5)
+    return (p2, p3, p4, p5) # Fonction permettant de trier dans la P(x) associée aux scores d'exploitabilité si NON KEV
 
 
-# Fonction permettant de créer les boites à moustache des Microservices
+# Famille de fonctions permettant de créer les boites à moustache
 def boite(boite_path):
     cur.execute("SELECT DISTINCT bs_id FROM biens_supports;")
     bs = cur.fetchall()
@@ -1461,9 +1421,7 @@ def boite(boite_path):
                     f"{folder_BS_ROUGE}\\{b}-{liste_dia[i]} {date}.png",
                     format="png",
                     dpi=300,
-                )
-
-
+                ) # Fonction permettant de créer les boites à moustache des biens supports
 def boite_vm(vm_id, folder_path):
     liste_dia = ["confidentiality", "integrity", "availability"]
     cur.execute(
@@ -1667,9 +1625,7 @@ def boite_vm(vm_id, folder_path):
             plt.savefig(f"{folder_VM_ORANGE}\\{name}.png", format="png", dpi=300)
         if p1Rouge or p2Rouge != 0:
             plt.savefig(f"{folder_VM_ROUGE}\\{name}.png", format="png", dpi=300)
-        plt.close(fig)
-
-
+        plt.close(fig) # Fonction permettant de créer les boites à moustache des valeurs métiers
 def boite_vm_globale(folder_path):
     liste_dia = ["confidentiality", "integrity", "availability"]
 
@@ -1802,7 +1758,7 @@ def boite_vm_globale(folder_path):
         # Connecter l'événement de redimensionnement
         fig.canvas.mpl_connect("resize_event", update_labelpad)
         plt.savefig(f"{folder_VM_META}\\{name}.png", format="png", dpi=300)
-        plt.close(fig)
+        plt.close(fig) # Fonction permettant de créer les boites à moustache méta des valeurs métiers
 
 
 def open_files():
@@ -1825,7 +1781,7 @@ def parse_excel():
     feuille = excel.active
     results = {}
 
-    # Prcourir toutes les colonnes à partir de la colonne B avec col = B et row = 2 (B2)
+    # Parcourir toutes les colonnes à partir de la colonne B avec col = B et row = 2 (B2)
     for col in feuille.iter_cols(min_col=2, min_row=2, values_only=False):
         col_index = col[
             0
@@ -1912,7 +1868,7 @@ def parse_vm():
         """,
             (valeur_meiter, D, C, I),
         )
-    conn.commit()
+    conn.commit() # Récupération des valeurs DIC|CVSS 3.1 pour chaque valeur métier
 
 
 # Définition du menu central du programme
