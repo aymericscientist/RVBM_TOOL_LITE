@@ -16,9 +16,22 @@ import pandas as pd
 import openpyxl
 from datetime import datetime
 from tabulate import tabulate
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QLabel, QLineEdit, QPushButton, 
-                             QFileDialog, QVBoxLayout, QWidget, QGroupBox, QHBoxLayout, 
-                             QProgressBar, QRadioButton, QMessageBox, QInputDialog)
+from PyQt5.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QFileDialog,
+    QVBoxLayout,
+    QWidget,
+    QGroupBox,
+    QHBoxLayout,
+    QProgressBar,
+    QRadioButton,
+    QMessageBox,
+    QInputDialog,
+)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from tkinter import filedialog, Tk
 import re
@@ -29,17 +42,17 @@ class ConversionThread(QThread):
     progress = pyqtSignal(int)  # Signal pour mettre à jour la barre de progression
 
     def run(self):
-        """ Simule un processus de conversion """
+        """Simule un processus de conversion"""
         for i in range(101):  # Simulation de progression 0% à 100%
             time.sleep(0.05)  # Pause pour simuler le travail
-            self.progress.emit(i)  # Envoie la progression
+            self.progress.emit(i)  # Envoie la progression --> à supprimer dans le code final
 
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QInputDialog, QLineEdit, QPushButton, QGroupBox, QHBoxLayout, QRadioButton, QProgressBar
+
 class RBVMTool(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.passphrase = self.get_secure_passphrase() 
+        self.passphrase = self.get_secure_passphrase()
         print("\nPassphrase saisie avec succès")
 
         self.setWindowTitle("Risk Based Vulnerability Management (RBVM) Tool")
@@ -47,11 +60,11 @@ class RBVMTool(QMainWindow):
         self.initUI()
 
     def get_secure_passphrase(self):
-        """ Demande une passphrase avec option de génération automatique """
+        """Demande une passphrase avec option de génération automatique"""
         while True:
             passphrase, ok = self.ask_for_passphrase()
 
-            if not ok:  
+            if not ok:
                 print("\nOpération annulée")
                 sys.exit()
 
@@ -59,23 +72,28 @@ class RBVMTool(QMainWindow):
                 print("\nPassphrase saisie avec succès")
                 return passphrase
             else:
-                QMessageBox.warning(None, "Passphrase invalide", 
+                QMessageBox.warning(
+                    None,
+                    "Passphrase invalide",
                     "Votre passphrase ne respecte pas les exigences !\n\n"
                     "Elle doit contenir au moins :\n"
                     "- 8 caractères\n"
                     "- 1 majuscule\n"
                     "- 1 chiffre\n"
-                    "- 1 caractère spécial")
+                    "- 1 caractère spécial",
+                )
 
     def ask_for_passphrase(self):
-        """ Boîte de dialogue améliorée avec option de génération automatique """
+        """Boîte de dialogue améliorée avec option de génération automatique"""
         dialog = QMessageBox()
         dialog.setWindowTitle("Chiffrement BDD obligatoire")
-        dialog.setText("Veuillez saisir une passphrase forte ou en générer une automatiquement.")
-        
+        dialog.setText(
+            "Veuillez saisir une passphrase forte ou en générer une automatiquement."
+        )
+
         passphrase_input = QLineEdit()
         passphrase_input.setEchoMode(QLineEdit.Password)
-        
+
         generate_button = QPushButton("Générer une passphrase forte")
         copy_button = QPushButton("Copier")
 
@@ -88,8 +106,12 @@ class RBVMTool(QMainWindow):
         container.setLayout(layout)
         dialog.layout().addWidget(container)
 
-        generate_button.clicked.connect(lambda: self.generate_and_set_passphrase(passphrase_input))
-        copy_button.clicked.connect(lambda: self.copy_to_clipboard(passphrase_input.text()))
+        generate_button.clicked.connect(
+            lambda: self.generate_and_set_passphrase(passphrase_input)
+        )
+        copy_button.clicked.connect(
+            lambda: self.copy_to_clipboard(passphrase_input.text())
+        )
 
         ok_button = dialog.addButton("OK", QMessageBox.AcceptRole)
         cancel_button = dialog.addButton("Annuler", QMessageBox.RejectRole)
@@ -102,28 +124,52 @@ class RBVMTool(QMainWindow):
             return "", False
 
     def generate_and_set_passphrase(self, input_field):
-        """ Génère une passphrase forte et l'affiche """
+        """Génère une passphrase forte et l'affiche"""
         new_passphrase = self.generate_secure_passphrase()
         input_field.setText(new_passphrase)
 
     def copy_to_clipboard(self, text):
-        """ Copie la passphrase générée dans le presse-papier """
+        """Copie la passphrase générée dans le presse-papier"""
         clipboard = QApplication.clipboard()
         clipboard.setText(text)
-        QMessageBox.information(None, "Copié !", "Passphrase copiée dans le presse-papier.")
+        QMessageBox.information(
+            None, "Copié !", "Passphrase copiée dans le presse-papier."
+        )
 
     def generate_secure_passphrase(self, length=20):
-        """ Génère une passphrase forte """
-        characters = string.ascii_letters + string.digits + "@$!%*?&"
-        return ''.join(secrets.choice(characters) for _ in range(length))
+        """Génère une passphrase forte respectant les exigences minimales."""
+        if length < 8:
+            raise ValueError("La longueur minimale de la passphrase doit être de 8 caractères.")
+
+        while True:
+            # Assurer la présence d'au moins un caractère de chaque catégorie requise
+            upper = secrets.choice(string.ascii_uppercase)
+            digit = secrets.choice(string.digits)
+            special = secrets.choice("@$!%*?&")
+            
+            # Remplir le reste avec des caractères aléatoires
+            characters = string.ascii_letters + string.digits + "@$!%*?&"
+            remaining = "".join(secrets.choice(characters) for _ in range(length - 3))
+
+            # Mélanger aléatoirement pour éviter un modèle fixe
+            passphrase = list(upper + digit + special + remaining)
+            secrets.SystemRandom().shuffle(passphrase)
+            passphrase = "".join(passphrase)
+
+            # Vérifier que la passphrase respecte les exigences
+            if self.is_passphrase_valid(passphrase):
+                return passphrase
 
     def is_passphrase_valid(self, passphrase):
-        """ Vérifie que la passphrase respecte les exigences """
-        return bool(re.match(r'^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$', passphrase))
-
+        """Vérifie que la passphrase respecte les exigences"""
+        return bool(
+            re.match(
+                r"^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$", passphrase
+            )
+        )
 
     def initUI(self):
-        """ Initialise l'interface utilisateur """
+        """Initialise l'interface utilisateur"""
         central_widget = QWidget()
         main_layout = QVBoxLayout()
 
@@ -132,7 +178,9 @@ class RBVMTool(QMainWindow):
         title.setStyleSheet("font-size: 20px; font-weight: bold; color: #444;")
 
         # Intégrer les besoins de sécurité et sûreté des valeurs métiers
-        security_group = QGroupBox("1ère étape : Charger (excel) les valeurs métiers ainsi que leurs besoins de sécurité et sûreté [template_prerequis DIC.xlsx]")
+        security_group = QGroupBox(
+            "1ère étape : Charger (excel) les valeurs métiers ainsi que leurs besoins de sécurité et sûreté [template_prerequis DIC.xlsx]"
+        )
         security_layout = QHBoxLayout()
         self.security_input = QLineEdit(self)
         security_browse = QPushButton("Téléverser", self)
@@ -142,7 +190,9 @@ class RBVMTool(QMainWindow):
         security_group.setLayout(security_layout)
 
         # Intégrer la matrice Bien Support - Valeur Métier
-        matrix_group = QGroupBox("2ème étape : Charger la matrice (excel) associant les biens supports aux valeurs métiers [template_matrice_vm_bs.xlsx]")
+        matrix_group = QGroupBox(
+            "2ème étape : Charger la matrice (excel) associant les biens supports aux valeurs métiers [template_matrice_vm_bs.xlsx]"
+        )
         matrix_layout = QHBoxLayout()
         self.matrix_input = QLineEdit(self)
         matrix_browse = QPushButton("Téléverser", self)
@@ -152,7 +202,9 @@ class RBVMTool(QMainWindow):
         matrix_group.setLayout(matrix_layout)
 
         # Charger VDR
-        vdr_group = QGroupBox("3ème étape : Charger tous les Vulnerability Disclosure Report (VDR) concernant l'exhaustivité des biens supports")
+        vdr_group = QGroupBox(
+            "3ème étape : Charger tous les Vulnerability Disclosure Report (VDR) concernant l'exhaustivité des biens supports"
+        )
         vdr_layout = QHBoxLayout()
         self.vdr_input = QLineEdit(self)
         vdr_browse = QPushButton("Téléverser", self)
@@ -162,12 +214,20 @@ class RBVMTool(QMainWindow):
         vdr_group.setLayout(vdr_layout)
 
         # Charger le fichier KEV Catalog
-        kev_group = QGroupBox("4ème étape : Charger le fichier Known Exploited Vulnerabilities (KEV) Catalog du Cybersecurity & Infrastructure Security Agency (CISA)")
+        kev_group = QGroupBox(
+            "4ème étape : Charger le fichier Known Exploited Vulnerabilities (KEV) Catalog du Cybersecurity & Infrastructure Security Agency (CISA)"
+        )
         kev_layout = QVBoxLayout()
-        
-        self.automatic_download = QRadioButton("Télécharger automatiquement depuis CISA [par défaut]", self)
-        self.local_file_option = QRadioButton("Sélectionner un fichier local (JSON/CSV)", self)
-        self.automatic_download.setChecked(True)  # Option par défaut : Télécharger automatiquement depuis CISA
+
+        self.automatic_download = QRadioButton(
+            "Télécharger automatiquement depuis CISA [par défaut]", self
+        )
+        self.local_file_option = QRadioButton(
+            "Sélectionner un fichier local (JSON/CSV)", self
+        )
+        self.automatic_download.setChecked(
+            True
+        )  # Option par défaut : Télécharger automatiquement depuis CISA
 
         kev_file_layout = QHBoxLayout()
         self.kev_input = QLineEdit(self)
@@ -187,16 +247,21 @@ class RBVMTool(QMainWindow):
         self.progress_bar.setValue(0)  # Initialisé à 0%
 
         # Bouton de conversion
-        self.convert_button = QPushButton("Générer les représentations concernant les risques liés aux biens supports puis aux valeurs métiers", self)
-        self.convert_button.setStyleSheet("background-color: #28a745; color: white; font-size: 14px; padding: 8px;")
-        #self.convert_button.clicked.connect(self.start_conversion)
+        self.convert_button = QPushButton(
+            "Générer les représentations concernant les risques liés aux biens supports puis aux valeurs métiers",
+            self,
+        )
+        self.convert_button.setStyleSheet(
+            "background-color: #28a745; color: white; font-size: 14px; padding: 8px;"
+        )
+        # self.convert_button.clicked.connect(self.start_conversion)
 
         # Ajout au layout principal
         main_layout.addWidget(title)
-        main_layout.addWidget(security_group) # Charger besoins de sécurité et sûreté
-        main_layout.addWidget(matrix_group) # Charger association VM & BS
-        main_layout.addWidget(vdr_group) # Sélectionner les VDR
-        main_layout.addWidget(kev_group)# Charger KEV
+        main_layout.addWidget(security_group)  # Charger besoins de sécurité et sûreté
+        main_layout.addWidget(matrix_group)  # Charger association VM & BS
+        main_layout.addWidget(vdr_group)  # Sélectionner les VDR
+        main_layout.addWidget(kev_group)  # Charger KEV
         main_layout.addWidget(self.progress_bar)
         main_layout.addWidget(self.convert_button)
 
@@ -205,7 +270,8 @@ class RBVMTool(QMainWindow):
         self.setCentralWidget(central_widget)
 
         # Appliquer le style CSS
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            """
             QMainWindow {
                 background-color: #f4f4f4;
             }
@@ -236,40 +302,61 @@ class RBVMTool(QMainWindow):
                 background-color: #fff;
                 text-align: center;
             }
-        """)
+        """
+        )
 
     def browse_vdr(self):
-        """ Ouvre une boîte de dialogue pour sélectionner un ou plusieurs fichiers VDR """
-        file_paths, _ = QFileDialog.getOpenFileNames(self, "Sélectionner un ou plusieurs VDR", "", "JSON Files (*.json);;All Files (*)")
+        """Ouvre une boîte de dialogue pour sélectionner un ou plusieurs fichiers VDR"""
+        file_paths, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Sélectionner un ou plusieurs VDR",
+            "",
+            "JSON Files (*.json);;All Files (*)",
+        )
         if file_paths:
             self.vdr_input.setText(", ".join(file_paths))
 
     def browse_kev(self):
-        """ Ouvre une boîte de dialogue pour sélectionner un fichier KEV local (JSON/CSV) """
-        file_path, _ = QFileDialog.getOpenFileName(self, "Sélectionner un fichier KEV", "", "JSON/CSV Files (*.json *.csv);;All Files (*)")
+        """Ouvre une boîte de dialogue pour sélectionner un fichier KEV local (JSON/CSV)"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Sélectionner un fichier KEV",
+            "",
+            "JSON/CSV Files (*.json *.csv);;All Files (*)",
+        )
         if file_path:
             self.kev_input.setText(file_path)
 
     def browse_matrix(self):
-        """ Ouvre une boîte de dialogue pour sélectionner un fichier Excel contenant la matrice BS-VM """
-        file_path, _ = QFileDialog.getOpenFileName(self, "Sélectionner un fichier Excel", "", "Excel Files (*.xlsx *.xls);;All Files (*)")
+        """Ouvre une boîte de dialogue pour sélectionner un fichier Excel contenant la matrice BS-VM"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Sélectionner un fichier Excel",
+            "",
+            "Excel Files (*.xlsx *.xls);;All Files (*)",
+        )
         if file_path:
             self.matrix_input.setText(file_path)
 
     def browse_security(self):
-        """ Ouvre une boîte de dialogue pour sélectionner un fichier Excel contenant les besoins de sécurité """
-        file_path, _ = QFileDialog.getOpenFileName(self, "Sélectionner un fichier Excel", "", "Excel Files (*.xlsx *.xls);;All Files (*)")
+        """Ouvre une boîte de dialogue pour sélectionner un fichier Excel contenant les besoins de sécurité"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Sélectionner un fichier Excel",
+            "",
+            "Excel Files (*.xlsx *.xls);;All Files (*)",
+        )
         if file_path:
             self.security_input.setText(file_path)
 
     def download_kev(self):
-        """ Télécharge automatiquement le fichier KEV depuis CISA """
+        """Télécharge automatiquement le fichier KEV depuis CISA"""
         url = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
         file_path = "known_exploited_vulnerabilities.json"
 
         try:
             response = requests.get(url, stream=True)
-            total_size = int(response.headers.get('content-length', 0))
+            total_size = int(response.headers.get("content-length", 0))
 
             with open(file_path, "wb") as file:
                 downloaded_size = 0
@@ -277,10 +364,14 @@ class RBVMTool(QMainWindow):
                     if chunk:
                         file.write(chunk)
                         downloaded_size += len(chunk)
-                        self.progress_bar.setValue(int((downloaded_size / total_size) * 100))
+                        self.progress_bar.setValue(
+                            int((downloaded_size / total_size) * 100)
+                        )
 
             self.kev_input.setText(file_path)
-            QMessageBox.information(self, "Succès", "Le fichier KEV a été téléchargé avec succès.")
+            QMessageBox.information(
+                self, "Succès", "Le fichier KEV a été téléchargé avec succès."
+            )
             self.progress_bar.setValue(100)
 
         except Exception as e:
@@ -288,21 +379,24 @@ class RBVMTool(QMainWindow):
             self.progress_bar.setValue(0)
 
     # Fonction permettant d'ouvrir le fichier KEV pour lecture
+
+
 def open_kev():
     file_path = filedialog.askopenfilename(
-        title="Sélectionner le fichier KEV",
-        filetypes=[("JSON files", "*.json")]
+        title="Sélectionner le fichier KEV", filetypes=[("JSON files", "*.json")]
     )
-    if (file_path):
-        with open(file_path, 'r') as file:
+    if file_path:
+        with open(file_path, "r") as file:
             kev = json.load(file)
         return kev
     return None
 
     def start_conversion(self):
-        """ Démarre la conversion avec la barre de progression """
+        """Démarre la conversion avec la barre de progression"""
         self.progress_bar.setValue(0)  # Reset la barre
-        self.convert_button.setEnabled(False)  # Désactive le bouton pendant la conversion
+        self.convert_button.setEnabled(
+            False
+        )  # Désactive le bouton pendant la conversion
 
         # Lancer le thread de conversion
         self.thread = ConversionThread()
@@ -310,14 +404,16 @@ def open_kev():
         self.thread.start()
 
     def update_progress(self, value):
-        """ Met à jour la barre de progression """
+        """Met à jour la barre de progression"""
         self.progress_bar.setValue(value)
         if value == 100:
             self.convert_button.setEnabled(True)  # Réactiver le bouton
 
+
 #  Lancement de l'application
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
+
     app = QApplication(sys.argv)
     fenetre = RBVMTool()
     fenetre.show()
@@ -327,30 +423,41 @@ if __name__ == '__main__':
 import sqlite3  # Utilisation du module standard SQLite3 avec SQLCipher
 import os  # Module pour interagir avec le système de fichiers et les chemins
 import sys
-from PyQt5.QtWidgets import QApplication, QInputDialog, QLineEdit, QMainWindow, QLabel, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import (
+    QApplication,
+    QInputDialog,
+    QLineEdit,
+    QMainWindow,
+    QLabel,
+    QVBoxLayout,
+    QWidget,
+)
 
 # Connexion à la base de données SQLite chiffrée avec SQLCipher
 conn = sqlite3.connect("rbvm.db")
 
 # Appliquer la clé PRAGMA chiffrée à la connexion SQLite
-conn.execute(f"PRAGMA passphrase = \"{passphrase}\";")
+conn.execute(f'PRAGMA passphrase = "{passphrase}";')
 conn.execute("PRAGMA foreign_passphrase = ON;")
 
 # Création du curseur
 cur = conn.cursor()
 
 # Création de la table valeurs_metiers avec contraintes d'unicité sur les propriétés C (confidentialité), I (intégrité) et A (disponibilité)
-cur.execute("""
+cur.execute(
+    """
       CREATE TABLE IF NOT EXISTS valeurs_metiers(
         name TEXT PRIMARY KEY,
         C REAL,
         I REAL,
         A REAL      
       );
-""")
+"""
+)
 
 # Création de la table biens_supports
-cur.execute("""
+cur.execute(
+    """
     CREATE TABLE IF NOT EXISTS biens_supports(
         bs_id TEXT NOT NULL, 
         cve_id TEXT,
@@ -374,40 +481,47 @@ cur.execute("""
         A_heritage REAL,
         PRIMARY KEY (bs_id, cve_id)
     );
-""")
+"""
+)
 
 # Création de la table jointure permettant d'associer toute valeur métier à tout bien support (n;n)
-cur.execute("""
+cur.execute(
+    """
     CREATE TABLE IF NOT EXISTS jointure(
     num    INTEGER PRIMARY KEY AUTOINCREMENT,
     bs_id  TEXT NOT NULL,
     vm_id  TEXT,
     FOREIGN KEY (vm_id) REFERENCES valeurs_metiers(name)
 );
-""")
+"""
+)
 
 
 import json  # Module pour lire, écrire et manipuler des données au format JSON.
 from tkinter import *  # Module pour créer des interfaces graphiques (fenêtres, boutons, etc.).
-from tkinter import filedialog  # Module pour ouvrir des boîtes de dialogue de sélection de fichiers ou de dossiers.
+from tkinter import (
+    filedialog,
+)  # Module pour ouvrir des boîtes de dialogue de sélection de fichiers ou de dossiers.
 import matplotlib.pyplot as plt  # Bibliothèque pour générer des graphiques et visualiser des données.
 import pandas as pd  # Bibliothèque pour manipuler et analyser des données sous forme de tableaux (DataFrames).
-from contextlib import ExitStack  # Module pour gérer plusieurs contextes de manière sécurisée (fichiers, connexions, etc.).
+from contextlib import (
+    ExitStack,
+)  # Module pour gérer plusieurs contextes de manière sécurisée (fichiers, connexions, etc.).
 import math  # Module intégré pour des opérations mathématiques (fonctions trigonométriques, logarithmes, etc.).
 from datetime import datetime  # Module pour manipuler des dates et heures.
 import openpyxl  # Bibliothèque pour lire, écrire et manipuler des fichiers Excel au format `.xlsx`.
-from tabulate import tabulate 
+from tabulate import tabulate
 from tkinter import Tk
 
 
 #### ? ####
 
 
-
-#### ? #### 
+#### ? ####
 # Mettre à jour les valeurs C (confidentialité), I (intégrité) et A (disponibilité) dans biens_supports en fonction de la valeur métier associée
 def update_micro_heritage():
-    cur.execute("""
+    cur.execute(
+        """
         UPDATE biens_supports
         SET 
             C_heritage = (
@@ -428,7 +542,8 @@ def update_micro_heritage():
                 JOIN valeurs_metiers vm ON j.vm_id = vm.name
                 WHERE j.bs_id = biens_supports.bs_id
             );
-    """)
+    """
+    )
 
 
 ##### VARIABLES GLOBALES #####
@@ -455,17 +570,36 @@ folder_VM_META = None
 # Dictionnaire permettant de stocker les biens supports ainsi que leurs valeurs P1, P2, P3, P4, P5,
 dicoListePx = {}
 
-dicoC = {'p5':[], 'p4':[], 'p3':[], 'p2':[], 'p1':[]}
-dicoI = {'p5':[], 'p4':[], 'p3':[], 'p2':[], 'p1':[]}
-dicoA = {'p5':[], 'p4':[], 'p3':[], 'p2':[], 'p1':[]}
+dicoC = {"p5": [], "p4": [], "p3": [], "p2": [], "p1": []}
+dicoI = {"p5": [], "p4": [], "p3": [], "p2": [], "p1": []}
+dicoA = {"p5": [], "p4": [], "p3": [], "p2": [], "p1": []}
 
 dicoGlobal = {"confidentiality": dicoC, "integrity": dicoI, "availability": dicoA}
 
 ##### CLASSES ET LISTES #####
 
-#Classe permettant de définir les CVE
+
+# Classe permettant de définir les CVE
 class CVE:
-    def __init__(self, id, composant_ref, description, severity, score_CVSS, attack_vector, attack_complexity, privileges_required, user_interaction, scope, confidentiality, integrity, availability, exp_score, env_score, kev):
+    def __init__(
+        self,
+        id,
+        composant_ref,
+        description,
+        severity,
+        score_CVSS,
+        attack_vector,
+        attack_complexity,
+        privileges_required,
+        user_interaction,
+        scope,
+        confidentiality,
+        integrity,
+        availability,
+        exp_score,
+        env_score,
+        kev,
+    ):
         self.id = id
         self.composant_ref = composant_ref
         self.description = description
@@ -482,9 +616,10 @@ class CVE:
         self.exp_score = exp_score
         self.env_score = env_score
         self.kev = kev
-    
+
     def __repr__(self):
-        return(f"ID: {self.id} \nBom-ref: {self.composant_ref} \nDescription: {self.description} \nSeverity: {self.severity} \nScore CVSS: {self.score_CVSS} \nAV: {self.attack_vector} \nAC: {self.attack_complexity} \nPR: {self.privileges_required} \nUI: {self.user_interaction} \nS: {self.scope} \nC: {self.confidentiality} \nI: {self.integrity} \nA: {self.availability} \nScore Exp: {self.exp_score} \nScore Env: {self.env_score} \nKeV: {self.kev}\n\n")
+        return f"ID: {self.id} \nBom-ref: {self.composant_ref} \nDescription: {self.description} \nSeverity: {self.severity} \nScore CVSS: {self.score_CVSS} \nAV: {self.attack_vector} \nAC: {self.attack_complexity} \nPR: {self.privileges_required} \nUI: {self.user_interaction} \nS: {self.scope} \nC: {self.confidentiality} \nI: {self.integrity} \nA: {self.availability} \nScore Exp: {self.exp_score} \nScore Env: {self.env_score} \nKeV: {self.kev}\n\n"
+
 
 class CVE_others:
     def __init__(self, id, composant_ref, description, severity):
@@ -492,11 +627,13 @@ class CVE_others:
         self.composant_ref = composant_ref
         self.description = description
         self.severity = severity
-    
+
     def __repr__(self):
-        return(f"ID: {self.id} \nBom-ref: {self.composant_ref} \nDescription: {self.description} \nSeverity: {self.severity}\n\n")
+        return f"ID: {self.id} \nBom-ref: {self.composant_ref} \nDescription: {self.description} \nSeverity: {self.severity}\n\n"
+
 
 ##### FONCTIONS #####
+
 
 # Fonction permettant de parser les variables environnementales à partir du "vector" du VDR (CVSS3.0)
 def var_environnementales_CVSSv3(svector):
@@ -508,7 +645,17 @@ def var_environnementales_CVSSv3(svector):
     confidentiality = svector[35]
     integrity = svector[39]
     availability = svector[43]
-    return (attack_vector, attack_complexity, privileges_required, user_interaction, scope, confidentiality, integrity, availability)
+    return (
+        attack_vector,
+        attack_complexity,
+        privileges_required,
+        user_interaction,
+        scope,
+        confidentiality,
+        integrity,
+        availability,
+    )
+
 
 # Fonction permettant de parser les variables environnementales à partir du "vector" du VDR (CVSS2.0)
 def var_environnementales_CVSSv2(svector):
@@ -518,7 +665,15 @@ def var_environnementales_CVSSv2(svector):
     confidentiality = svector[18]
     integrity = svector[22]
     availability = svector[26]
-    return (attack_vector, attack_complexity, authentification, confidentiality, integrity, availability)
+    return (
+        attack_vector,
+        attack_complexity,
+        authentification,
+        confidentiality,
+        integrity,
+        availability,
+    )
+
 
 # Fonction permettant de parser les variables environnementales à partir du "vector" du VDR (CVSS non spécifié)
 def var_environnementales_other(svector):
@@ -530,16 +685,56 @@ def var_environnementales_other(svector):
     confidentiality = "None"
     integrity = "None"
     availability = "None"
-    return (attack_vector, attack_complexity, privileges_required, user_interaction, scope, confidentiality, integrity, availability)
+    return (
+        attack_vector,
+        attack_complexity,
+        privileges_required,
+        user_interaction,
+        scope,
+        confidentiality,
+        integrity,
+        availability,
+    )
+
 
 # Fonction permettant de calculer le score d'exploitabilité
-def calcul_score_exploitabilité(attack_vector, attack_complexity, privileges_required, user_interaction):
+def calcul_score_exploitabilité(
+    attack_vector, attack_complexity, privileges_required, user_interaction
+):
 
-    exp_score = (8.22 * attack_vector * attack_complexity * privileges_required * user_interaction) / 3.9 * 4
+    exp_score = (
+        (
+            8.22
+            * attack_vector
+            * attack_complexity
+            * privileges_required
+            * user_interaction
+        )
+        / 3.9
+        * 4
+    )
     return round(exp_score, 1)
 
+
 # Fonction permettant de trier le nombre de CVE en vert, orange et rouge (VOR) en fonction de chaque P(x)
-def triAffichageVOR(p1, p2, p3, p4, p5, p1Vert, p1Orange, p1Rouge, p2Vert, p2Orange, p2Rouge, p3Vert, p3Orange, p4Vert, p4Orange, p5Vert):
+def triAffichageVOR(
+    p1,
+    p2,
+    p3,
+    p4,
+    p5,
+    p1Vert,
+    p1Orange,
+    p1Rouge,
+    p2Vert,
+    p2Orange,
+    p2Rouge,
+    p3Vert,
+    p3Orange,
+    p4Vert,
+    p4Orange,
+    p5Vert,
+):
     for score in p1:
         if 0 <= score <= 0.4:
             p1Vert += 1
@@ -547,7 +742,7 @@ def triAffichageVOR(p1, p2, p3, p4, p5, p1Vert, p1Orange, p1Rouge, p2Vert, p2Ora
             p1Orange += 1
         else:
             p1Rouge += 1
-    
+
     for score in p2:
         if 0 <= score <= 0.4:
             p2Vert += 1
@@ -555,7 +750,7 @@ def triAffichageVOR(p1, p2, p3, p4, p5, p1Vert, p1Orange, p1Rouge, p2Vert, p2Ora
             p2Orange += 1
         else:
             p2Rouge += 1
-    
+
     for score in p3:
         if 0 <= score <= 1.4:
             p3Vert += 1
@@ -570,121 +765,200 @@ def triAffichageVOR(p1, p2, p3, p4, p5, p1Vert, p1Orange, p1Rouge, p2Vert, p2Ora
 
     for score in p5:
         p5Vert += 1
-    
-    return (p1Vert, p1Orange, p1Rouge, p2Vert, p2Orange, p2Rouge, p3Vert, p3Orange, p4Vert, p4Orange, p5Vert)
+
+    return (
+        p1Vert,
+        p1Orange,
+        p1Rouge,
+        p2Vert,
+        p2Orange,
+        p2Rouge,
+        p3Vert,
+        p3Orange,
+        p4Vert,
+        p4Orange,
+        p5Vert,
+    )
 
 
 # Fonction de decomposition analytique du VDR
-def parsing(vdr_data, kev_data) :
+def parsing(vdr_data, kev_data):
     p1 = []
     p2 = []
     p3 = []
     p4 = []
     p5 = []
     list_vulnerabilities = []
-    if 'vulnerabilities' in vdr_data:
+    if "vulnerabilities" in vdr_data:
         list_vulnerabilities = []
-        for vulnerability in vdr_data['vulnerabilities']:
-            id = vulnerability.get('id')
+        for vulnerability in vdr_data["vulnerabilities"]:
+            id = vulnerability.get("id")
             if "GHSA" in id:
                 continue
-            score_CVSS = vulnerability.get('ratings')[0].get('score')
+            score_CVSS = vulnerability.get("ratings")[0].get("score")
             if score_CVSS is None:
                 continue
-            composant_ref = vulnerability.get('bom-ref')
-            description = vulnerability.get('description')
-            severity = vulnerability.get('ratings')[0].get('severity')
-            vector = vulnerability.get('ratings')[0].get('vector')
+            composant_ref = vulnerability.get("bom-ref")
+            description = vulnerability.get("description")
+            severity = vulnerability.get("ratings")[0].get("severity")
+            vector = vulnerability.get("ratings")[0].get("vector")
             svector = str(vector)
-            method = vulnerability.get('ratings')[0].get('method')
+            method = vulnerability.get("ratings")[0].get("method")
             if "CVSSv2" in method:
                 continue
             if "CVSSv3" in method:
-                attack_vector, attack_complexity, privileges_required, user_interaction, scope, confidentiality, integrity, availability = var_environnementales_CVSSv3(svector)
+                (
+                    attack_vector,
+                    attack_complexity,
+                    privileges_required,
+                    user_interaction,
+                    scope,
+                    confidentiality,
+                    integrity,
+                    availability,
+                ) = var_environnementales_CVSSv3(svector)
             elif "other" in method:
-                attack_vector, attack_complexity, privileges_required, user_interaction, scope, confidentiality, integrity, availability = var_environnementales_other(svector)
+                (
+                    attack_vector,
+                    attack_complexity,
+                    privileges_required,
+                    user_interaction,
+                    scope,
+                    confidentiality,
+                    integrity,
+                    availability,
+                ) = var_environnementales_other(svector)
                 vuln_other = CVE_others(
                     id=id,
                     composant_ref=composant_ref,
                     description=description,
-                    severity=severity)
-                cur.execute("""INSERT INTO biens_supports(bs_id, cve_id, bom_ref, composant_ref, severity) 
+                    severity=severity,
+                )
+                cur.execute(
+                    """INSERT INTO biens_supports(bs_id, cve_id, bom_ref, composant_ref, severity) 
                             VALUES (?, ?, ?, ?, ?) 
                             ON CONFLICT (bs_id, cve_id) DO NOTHING;
-                            """, (bs_id, vuln_other.id, serialNumber, vuln_other.composant_ref, vuln_other.severity))
+                            """,
+                    (
+                        bs_id,
+                        vuln_other.id,
+                        serialNumber,
+                        vuln_other.composant_ref,
+                        vuln_other.severity,
+                    ),
+                )
                 continue
-
 
             # Initialisation du score d'exploitabilité
             exp_score = None
-            
+
             # variables attack vector
             AV_network = 0.85
             AV_adjacent = 0.62
             AV_local = 0.55
             AV_physical = 0.2
-            
+
             # variables attack complexity
             AC_low = 0.77
             AC_high = 0.44
-            
+
             # variables privileges_required
             PR_none = 0.85
             PR_low = 0.62
             PR_high = 0.27
-            
+
             # variables user interaction
             UI_none = 0.85
             UI_required = 0.62
-            
+
             # variables confidencialité, intégrité, disponibilité
             CIA_none = 0
             CIA_low = 0.22
             CIA_high = 0.56
-            
+
             # Définition de la valeur de l'attack vector
-            if "N" in attack_vector:attack_vector = AV_network
-            elif "A" in attack_vector:attack_vector = AV_adjacent
-            elif "L" in attack_vector:attack_vector = AV_local
-            elif "P" in attack_vector:attack_vector = AV_physical
-            else: attack_vector = None
-            
+            if "N" in attack_vector:
+                attack_vector = AV_network
+            elif "A" in attack_vector:
+                attack_vector = AV_adjacent
+            elif "L" in attack_vector:
+                attack_vector = AV_local
+            elif "P" in attack_vector:
+                attack_vector = AV_physical
+            else:
+                attack_vector = None
+
             # Définition de la valeur de l'attack complexity
-            if "L" in attack_complexity:attack_complexity = AC_low
-            elif "H" in attack_complexity:attack_complexity = AC_high
-            else: attack_complexity = None
-            
+            if "L" in attack_complexity:
+                attack_complexity = AC_low
+            elif "H" in attack_complexity:
+                attack_complexity = AC_high
+            else:
+                attack_complexity = None
+
             # Définition de la valeur des privileges required
-            if "N" in privileges_required:privileges_required = PR_none
-            elif "L" in privileges_required:privileges_required = PR_low
-            elif "H" in privileges_required:privileges_required = PR_high
-            else: privileges_required = None
-           
-           # Définition de la valeur du user interaction
-            if "N" in user_interaction:user_interaction = UI_none
-            elif "R" in user_interaction:user_interaction = UI_required
-            else: user_interaction = None
-           
-           # Définition de la valeur confidencialité, intégrité, disponibilité
-            if "N" in confidentiality:confidentiality_num = CIA_none
-            elif "L" in confidentiality:confidentiality_num = CIA_low
-            elif "H" in confidentiality:confidentiality_num = CIA_high
-            if "N" in integrity:integrity_num = CIA_none
-            elif "L" in integrity:integrity_num = CIA_low
-            elif "H" in integrity:integrity_num = CIA_high
-            if "N" in availability:availability_num = CIA_none
-            elif "L" in availability:availability_num = CIA_low
-            elif "H" in availability:availability_num = CIA_high
+            if "N" in privileges_required:
+                privileges_required = PR_none
+            elif "L" in privileges_required:
+                privileges_required = PR_low
+            elif "H" in privileges_required:
+                privileges_required = PR_high
+            else:
+                privileges_required = None
+
+            # Définition de la valeur du user interaction
+            if "N" in user_interaction:
+                user_interaction = UI_none
+            elif "R" in user_interaction:
+                user_interaction = UI_required
+            else:
+                user_interaction = None
+
+            # Définition de la valeur confidencialité, intégrité, disponibilité
+            if "N" in confidentiality:
+                confidentiality_num = CIA_none
+            elif "L" in confidentiality:
+                confidentiality_num = CIA_low
+            elif "H" in confidentiality:
+                confidentiality_num = CIA_high
+            if "N" in integrity:
+                integrity_num = CIA_none
+            elif "L" in integrity:
+                integrity_num = CIA_low
+            elif "H" in integrity:
+                integrity_num = CIA_high
+            if "N" in availability:
+                availability_num = CIA_none
+            elif "L" in availability:
+                availability_num = CIA_low
+            elif "H" in availability:
+                availability_num = CIA_high
 
             # Calcul du score d'exploitabilité et assignation dans la variable exp_score
-            exp_score = calcul_score_exploitabilité(attack_vector, attack_complexity, privileges_required, user_interaction)
+            exp_score = calcul_score_exploitabilité(
+                attack_vector, attack_complexity, privileges_required, user_interaction
+            )
 
             # Calcul du score environnemental et assignation dans la variable env_score
-            env_score = calcul_score_environnemental(1.5, 0.5, 0.5, availability_num, integrity_num, confidentiality_num, scope, attack_vector, attack_complexity, privileges_required, user_interaction)
+            env_score = calcul_score_environnemental(
+                1.5,
+                0.5,
+                0.5,
+                availability_num,
+                integrity_num,
+                confidentiality_num,
+                scope,
+                attack_vector,
+                attack_complexity,
+                privileges_required,
+                user_interaction,
+            )
 
             # Déterminer si la CVE est une KEV
-            if id in kev_data : kev = "YES"
-            else: kev = "NO"
+            if id in kev_data:
+                kev = "YES"
+            else:
+                kev = "NO"
 
             if "YES" in kev:
                 p1.append(exp_score)
@@ -708,23 +982,55 @@ def parsing(vdr_data, kev_data) :
                 availability=availability,
                 exp_score=exp_score,
                 env_score=env_score,
-                kev=kev
+                kev=kev,
             )
 
             list_vulnerabilities.append(vuln)
-    
+
     for vuln in list_vulnerabilities:
-        cur.execute("""
+        cur.execute(
+            """
             INSERT INTO biens_supports(
                 bs_id, cve_id, bom_ref, composant_ref, severity, score_cvss, attack_vector, attack_complexity, privileges_required, user_interaction, scope, impact_confidentiality, impact_integrity, impact_availability, exp_score, KEV
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (bs_id, cve_id) DO NOTHING;
-        """, (bs_id, vuln.id, serialNumber, vuln.composant_ref, vuln.severity, vuln.score_CVSS, vuln.attack_vector, vuln.attack_complexity, vuln.privileges_required, vuln.user_interaction, vuln.scope, vuln.confidentiality, vuln.integrity, vuln.availability, vuln.exp_score, vuln.kev
-        ))
+        """,
+            (
+                bs_id,
+                vuln.id,
+                serialNumber,
+                vuln.composant_ref,
+                vuln.severity,
+                vuln.score_CVSS,
+                vuln.attack_vector,
+                vuln.attack_complexity,
+                vuln.privileges_required,
+                vuln.user_interaction,
+                vuln.scope,
+                vuln.confidentiality,
+                vuln.integrity,
+                vuln.availability,
+                vuln.exp_score,
+                vuln.kev,
+            ),
+        )
+
 
 # Fonction permettant de calculer le score environnemental
-def calcul_score_environnemental(disponibiliteVM, integriteVM, confidentialiteVM, availability, integrity, confidentiality, scope, attack_vector, attack_complexity, privileges_required, user_interaction):
+def calcul_score_environnemental(
+    disponibiliteVM,
+    integriteVM,
+    confidentialiteVM,
+    availability,
+    integrity,
+    confidentiality,
+    scope,
+    attack_vector,
+    attack_complexity,
+    privileges_required,
+    user_interaction,
+):
     try:
         disponibiliteVM = float(disponibiliteVM)
         integriteVM = float(integriteVM)
@@ -742,17 +1048,55 @@ def calcul_score_environnemental(disponibiliteVM, integriteVM, confidentialiteVM
 
     # Définition de la valeur scope
     if "U" in scope:
-        modified_impact = 6.42 * min(1 - (1 - disponibiliteVM * availability) * (1 - integriteVM * integrity) * (1 - confidentialiteVM * confidentiality), 0.915)
+        modified_impact = 6.42 * min(
+            1
+            - (1 - disponibiliteVM * availability)
+            * (1 - integriteVM * integrity)
+            * (1 - confidentialiteVM * confidentiality),
+            0.915,
+        )
     elif "C" in scope:
-        modified_impact = 7.52 * (min(1 - (1 - disponibiliteVM * availability) * (1 - integriteVM * integrity) * (1 - confidentialiteVM * confidentiality), 0.915) - 0.029) - 3.25 * (((min(1 - (1 - disponibiliteVM * availability) * (1 - integriteVM * integrity) * (1 - confidentialiteVM * confidentiality), 0.915)) * 0.9731 - 0.02) ** 13)
-    
-    modified_exploitability = 8.22 * attack_vector * attack_complexity * privileges_required * user_interaction
+        modified_impact = 7.52 * (
+            min(
+                1
+                - (1 - disponibiliteVM * availability)
+                * (1 - integriteVM * integrity)
+                * (1 - confidentialiteVM * confidentiality),
+                0.915,
+            )
+            - 0.029
+        ) - 3.25 * (
+            (
+                (
+                    min(
+                        1
+                        - (1 - disponibiliteVM * availability)
+                        * (1 - integriteVM * integrity)
+                        * (1 - confidentialiteVM * confidentiality),
+                        0.915,
+                    )
+                )
+                * 0.9731
+                - 0.02
+            )
+            ** 13
+        )
+
+    modified_exploitability = (
+        8.22
+        * attack_vector
+        * attack_complexity
+        * privileges_required
+        * user_interaction
+    )
 
     if "U" in scope:
         env_score = round(min(modified_impact + modified_exploitability, 10), 2)
     elif "C" in scope:
-        env_score = round(min(1.08 * (modified_impact + modified_exploitability), 10), 2)
-    
+        env_score = round(
+            min(1.08 * (modified_impact + modified_exploitability), 10), 2
+        )
+
     return env_score
 
 
@@ -761,7 +1105,8 @@ def option_5_calcul_scores():
     scores_dict = {}
 
     # Récupération des données
-    cur.execute("""
+    cur.execute(
+        """
         SELECT 
             bs_id,
             cve_id,
@@ -780,7 +1125,8 @@ def option_5_calcul_scores():
             biens_supports
         ORDER BY 
             bs_id, cve_id;
-    """)
+    """
+    )
     rows = cur.fetchall()
 
     if len(rows) == 0:
@@ -789,11 +1135,22 @@ def option_5_calcul_scores():
 
     # Traitement de chaque ligne
     for row in rows:
-        (bs_id, cve_id, C_heritage, I_heritage, A_heritage, 
-         impact_confidentiality, impact_integrity, impact_availability, 
-         scope, attack_vector, attack_complexity, 
-         privileges_required, user_interaction) = row
-        
+        (
+            bs_id,
+            cve_id,
+            C_heritage,
+            I_heritage,
+            A_heritage,
+            impact_confidentiality,
+            impact_integrity,
+            impact_availability,
+            scope,
+            attack_vector,
+            attack_complexity,
+            privileges_required,
+            user_interaction,
+        ) = row
+
         # Conversion des valeurs textuelles en numériques
         impact_availability_num = convert_cia_to_numeric(impact_availability)
         impact_integrity_num = convert_cia_to_numeric(impact_integrity)
@@ -802,16 +1159,23 @@ def option_5_calcul_scores():
         try:
             # Calcul du score environnemental
             env_score = calcul_score_environnemental(
-                A_heritage, I_heritage, C_heritage, 
-                impact_availability_num, impact_integrity_num, impact_confidentiality_num, 
-                scope, attack_vector, attack_complexity, 
-                privileges_required, user_interaction
+                A_heritage,
+                I_heritage,
+                C_heritage,
+                impact_availability_num,
+                impact_integrity_num,
+                impact_confidentiality_num,
+                scope,
+                attack_vector,
+                attack_complexity,
+                privileges_required,
+                user_interaction,
             )
 
             # Stockage des scores
             if bs_id not in scores_dict:
                 scores_dict[bs_id] = {}
-            
+
             scores_dict[bs_id][cve_id] = env_score
 
         except Exception as e:
@@ -820,28 +1184,39 @@ def option_5_calcul_scores():
     # Mise à jour de la base de données
     for bs_id, cve_scores in scores_dict.items():
         for cve_id, env_score in cve_scores.items():
-            cur.execute("""
+            cur.execute(
+                """
                 UPDATE biens_supports
                 SET env_score = ?
                 WHERE bs_id = ? AND cve_id = ?;
-            """, (env_score, bs_id, cve_id))
+            """,
+                (env_score, bs_id, cve_id),
+            )
+
 
 # Fonctions de conversion des valeurs d'impact CIA en valeurs numériques
 def convert_cia_to_numeric(value):
-    #Convertit les valeurs d'impact CIA en valeurs numériques
-    if value == 'N': return 0  # None
-    elif value == 'L': return 0.22  # Low
-    elif value == 'H': return 0.56  # High
+    # Convertit les valeurs d'impact CIA en valeurs numériques
+    if value == "N":
+        return 0  # None
+    elif value == "L":
+        return 0.22  # Low
+    elif value == "H":
+        return 0.56  # High
     return 0
+
 
 # Liaison du bs_id 'cpn-mab-échanges' à la VM 'Server' dans la table jointure
 def link(bs_id, vm_id):
-    cur.execute(f"""
+    cur.execute(
+        f"""
     UPDATE jointure 
     SET vm_id = '{vm_id}'
     WHERE bs_id = '{bs_id}' AND vm_id IS NULL
 ;
-""")
+"""
+    )
+
 
 # Fonction permettant de trier dans le Px associé les scores d'exploitabilité si NON KEV
 def definitionPx(p2, p3, p4, p5, scoreEnv, scoreExp):
@@ -853,9 +1228,11 @@ def definitionPx(p2, p3, p4, p5, scoreEnv, scoreExp):
         p4.append(scoreExp)
     elif 0.1 <= scoreEnv <= 3.9:
         p5.append(scoreExp)
-    else: pass
-    
+    else:
+        pass
+
     return (p2, p3, p4, p5)
+
 
 # Fonction permettant de créer les boites à moustache des Microservices
 def boite(boite_path):
@@ -873,7 +1250,7 @@ def boite(boite_path):
     p4Vert = 0
     p4Orange = 0
     p5Vert = 0
-    for i in range (len(liste_dia)):
+    for i in range(len(liste_dia)):
         for b in bs:
             p1Vert = 0
             p1Orange = 0
@@ -887,20 +1264,26 @@ def boite(boite_path):
             p4Orange = 0
             p5Vert = 0
             b = b[0]
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT cve_id 
                 FROM biens_supports 
                 WHERE bs_id = ? AND kev = 'YES';
-            """, (b,))
+            """,
+                (b,),
+            )
 
             kev = cur.fetchall()
             kev_data = {row[0] for row in kev}
 
-            cur.execute(f"""
+            cur.execute(
+                f"""
                 SELECT cve_id, exp_score, env_score 
                 FROM biens_supports 
                 WHERE bs_id = ? AND impact_{liste_dia[i]} != 'N';
-            """, (b,))
+            """,
+                (b,),
+            )
             data = cur.fetchall()
 
             p1 = []
@@ -915,23 +1298,61 @@ def boite(boite_path):
                 else:
                     p2, p3, p4, p5 = definitionPx(p2, p3, p4, p5, env_score, exp_score)
 
-            p1Vert, p1Orange, p1Rouge, p2Vert, p2Orange, p2Rouge, p3Vert, p3Orange, p4Vert, p4Orange, p5Vert = triAffichageVOR(p1, p2, p3, p4, p5, p1Vert, p1Orange, p1Rouge, p2Vert, p2Orange, p2Rouge, p3Vert, p3Orange, p4Vert, p4Orange, p5Vert)
+            (
+                p1Vert,
+                p1Orange,
+                p1Rouge,
+                p2Vert,
+                p2Orange,
+                p2Rouge,
+                p3Vert,
+                p3Orange,
+                p4Vert,
+                p4Orange,
+                p5Vert,
+            ) = triAffichageVOR(
+                p1,
+                p2,
+                p3,
+                p4,
+                p5,
+                p1Vert,
+                p1Orange,
+                p1Rouge,
+                p2Vert,
+                p2Orange,
+                p2Rouge,
+                p3Vert,
+                p3Orange,
+                p4Vert,
+                p4Orange,
+                p5Vert,
+            )
 
             data = [p5, p4, p3, p2, p1]
             impact_key = f"{b}-{liste_dia[i]}"
             dicoListePx[impact_key] = data
 
-
             positions = [1, 2, 3, 4, 5]
             labels = ["P5", "P4", "P3", "P2", "P1"]
-            data_filtree = [d if isinstance(d, list) and len(d) > 0 else [] for d in data]
+            data_filtree = [
+                d if isinstance(d, list) and len(d) > 0 else [] for d in data
+            ]
 
             nbVertOrangeRouge = [
                 [(f"{p5Vert}", "green")],
                 [(f"{p4Vert}", "green"), (f"{p4Orange}", "orange")],
                 [(f"{p3Vert}", "green"), (f"{p3Orange}", "orange")],
-                [(f"{p2Vert}", "green"), (f"{p2Orange}", "orange"), (f"{p2Rouge}", "red")],
-                [(f"{p1Vert}", "green"), (f"{p1Orange}", "orange"), (f"{p1Rouge}", "red")],
+                [
+                    (f"{p2Vert}", "green"),
+                    (f"{p2Orange}", "orange"),
+                    (f"{p2Rouge}", "red"),
+                ],
+                [
+                    (f"{p1Vert}", "green"),
+                    (f"{p1Orange}", "orange"),
+                    (f"{p1Rouge}", "red"),
+                ],
             ]
 
             now = datetime.now()
@@ -944,25 +1365,39 @@ def boite(boite_path):
             fig, ax = plt.subplots(figsize=(10, 5))
 
             # Ajouter l'image de fond à l'axe
-            ax.imshow(im, extent=[0, 4, 0.5, 5.5], aspect='auto', alpha=0.5, zorder=0)
+            ax.imshow(im, extent=[0, 4, 0.5, 5.5], aspect="auto", alpha=0.5, zorder=0)
 
             # Ajouter le boxplot sur le même axe
-            ax.boxplot(data_filtree, vert=False, positions=positions, patch_artist=False, showfliers=False, zorder=1)
-            box = ax.boxplot(data_filtree, vert=False, positions=positions, patch_artist=False, showfliers=False, zorder=1)
+            ax.boxplot(
+                data_filtree,
+                vert=False,
+                positions=positions,
+                patch_artist=False,
+                showfliers=False,
+                zorder=1,
+            )
+            box = ax.boxplot(
+                data_filtree,
+                vert=False,
+                positions=positions,
+                patch_artist=False,
+                showfliers=False,
+                zorder=1,
+            )
 
             # Ajouter quadrillage sur l'axe des abscisses
-            ax.grid(axis='x', linestyle='--', linewidth=0.5, color='gray', alpha=0.7)
+            ax.grid(axis="x", linestyle="--", linewidth=0.5, color="gray", alpha=0.7)
 
             # Mettre la mediane en rouge
-            for median in box['medians'] :
-                median.set_color('red')
+            for median in box["medians"]:
+                median.set_color("red")
                 median.set_linewidth(3)
 
-            ax.spines['right'].set_visible(False)
-            ax.spines['top'].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            ax.spines["top"].set_visible(False)
 
             # Ajouter les étiquettes, titre et limites
-            ax.set_title(f'{b} ({liste_dia[i]})')
+            ax.set_title(f"{b} ({liste_dia[i]})")
             ax.set_ylabel("Sévérité", labelpad=55)
             ax.set_xlabel("Score d'exploitabilité")
             ax.set_xlim(0, 4)
@@ -974,52 +1409,89 @@ def boite(boite_path):
                 y_pos = pos
                 x_pos = -0.43
                 for text, color in nbVertOrangeRouge:
-                    ax.text(x_pos, y_pos, text, ha='right', va='center', fontsize=11, color=color)
+                    ax.text(
+                        x_pos,
+                        y_pos,
+                        text,
+                        ha="right",
+                        va="center",
+                        fontsize=11,
+                        color=color,
+                    )
                     x_pos += 0.1
 
             # Ajuster dynamiquement le labelpad après redimensionnement
             def update_labelpad(event):
                 """Ajuster dynamiquement le labelpad du label y."""
                 fig_width, _ = fig.get_size_inches()
-                ax.set_ylabel("Sévérité", labelpad=fig_width * 5)  # Ajuste en fonction de la largeur
+                ax.set_ylabel(
+                    "Sévérité", labelpad=fig_width * 5
+                )  # Ajuste en fonction de la largeur
 
             # Connecter l'événement de redimensionnement
             fig.canvas.mpl_connect("resize_event", update_labelpad)
 
             # Sauvegarder la figure
-            plt.savefig(f'{boite_path}\\{b}-{liste_dia[i]} {date}.png', format='png', dpi=300)
-            if (p1Vert or p2Vert or p3Vert or p4Vert or p5Vert != 0) and (p1Orange == 0 and p1Rouge == 0 and p2Orange == 0 and p2Rouge == 0 and p3Orange == 0 and p4Orange == 0):
-                plt.savefig(f'{folder_BS_VERT}\\{b}-{liste_dia[i]} {date}.png', format='png', dpi=300)
-            if (p1Orange or p2Orange or p3Orange or p3Orange != 0) and (p1Rouge == 0 and p2Rouge == 0):
-                plt.savefig(f'{folder_BS_ORANGE}\\{b}-{liste_dia[i]} {date}.png', format='png', dpi=300)
+            plt.savefig(
+                f"{boite_path}\\{b}-{liste_dia[i]} {date}.png", format="png", dpi=300
+            )
+            if (p1Vert or p2Vert or p3Vert or p4Vert or p5Vert != 0) and (
+                p1Orange == 0
+                and p1Rouge == 0
+                and p2Orange == 0
+                and p2Rouge == 0
+                and p3Orange == 0
+                and p4Orange == 0
+            ):
+                plt.savefig(
+                    f"{folder_BS_VERT}\\{b}-{liste_dia[i]} {date}.png",
+                    format="png",
+                    dpi=300,
+                )
+            if (p1Orange or p2Orange or p3Orange or p3Orange != 0) and (
+                p1Rouge == 0 and p2Rouge == 0
+            ):
+                plt.savefig(
+                    f"{folder_BS_ORANGE}\\{b}-{liste_dia[i]} {date}.png",
+                    format="png",
+                    dpi=300,
+                )
             if p1Rouge or p2Rouge != 0:
-                plt.savefig(f'{folder_BS_ROUGE}\\{b}-{liste_dia[i]} {date}.png', format='png', dpi=300)
+                plt.savefig(
+                    f"{folder_BS_ROUGE}\\{b}-{liste_dia[i]} {date}.png",
+                    format="png",
+                    dpi=300,
+                )
+
 
 def boite_vm(vm_id, folder_path):
     liste_dia = ["confidentiality", "integrity", "availability"]
-    cur.execute("""
+    cur.execute(
+        """
         SELECT j.bs_id
         FROM jointure j
         WHERE j.vm_id = ?;
-    """, (vm_id,))
+    """,
+        (vm_id,),
+    )
 
     rows = cur.fetchall()
-    p1t = {'confidentiality': [], 'integrity': [], 'availability': []}
-    p2t = {'confidentiality': [], 'integrity': [], 'availability': []}
-    p3t = {'confidentiality': [], 'integrity': [], 'availability': []}
-    p4t = {'confidentiality': [], 'integrity': [], 'availability': []}
-    p5t = {'confidentiality': [], 'integrity': [], 'availability': []}
+    p1t = {"confidentiality": [], "integrity": [], "availability": []}
+    p2t = {"confidentiality": [], "integrity": [], "availability": []}
+    p3t = {"confidentiality": [], "integrity": [], "availability": []}
+    p4t = {"confidentiality": [], "integrity": [], "availability": []}
+    p5t = {"confidentiality": [], "integrity": [], "availability": []}
 
     for row in rows:
         bs_id = row[0]
-        
+
         for impact in liste_dia:
             impact_key = f"{bs_id}-{impact}"
             if impact_key in dicoListePx:
                 p5t[impact].extend(dicoListePx[impact_key][0])
-                p4t[impact].extend(dicoListePx[impact_key][1])  
-                p3t[impact].extend(dicoListePx[impact_key][2])  
-                p2t[impact].extend(dicoListePx[impact_key][3])  
+                p4t[impact].extend(dicoListePx[impact_key][1])
+                p3t[impact].extend(dicoListePx[impact_key][2])
+                p2t[impact].extend(dicoListePx[impact_key][3])
                 p1t[impact].extend(dicoListePx[impact_key][4])
     data = {}
 
@@ -1030,7 +1502,7 @@ def boite_vm(vm_id, folder_path):
         p3.extend(p3t[impact])
         p2.extend(p2t[impact])
         p1.extend(p1t[impact])
-        
+
         data[impact] = [p5, p4, p3, p2, p1]
 
     for impact in liste_dia:
@@ -1071,7 +1543,36 @@ def boite_vm(vm_id, folder_path):
         p4Orange = 0
         p5Vert = 0
 
-        p1Vert, p1Orange, p1Rouge, p2Vert, p2Orange, p2Rouge, p3Vert, p3Orange, p4Vert, p4Orange, p5Vert = triAffichageVOR(p1, p2, p3, p4, p5, p1Vert, p1Orange, p1Rouge, p2Vert, p2Orange, p2Rouge, p3Vert, p3Orange, p4Vert, p4Orange, p5Vert)
+        (
+            p1Vert,
+            p1Orange,
+            p1Rouge,
+            p2Vert,
+            p2Orange,
+            p2Rouge,
+            p3Vert,
+            p3Orange,
+            p4Vert,
+            p4Orange,
+            p5Vert,
+        ) = triAffichageVOR(
+            p1,
+            p2,
+            p3,
+            p4,
+            p5,
+            p1Vert,
+            p1Orange,
+            p1Rouge,
+            p2Vert,
+            p2Orange,
+            p2Rouge,
+            p3Vert,
+            p3Orange,
+            p4Vert,
+            p4Orange,
+            p5Vert,
+        )
 
         positions = [1, 2, 3, 4, 5]
         labels = ["P5", "P4", "P3", "P2", "P1"]
@@ -1089,20 +1590,34 @@ def boite_vm(vm_id, folder_path):
         date = now.strftime("%d.%m.%Y")
         im = plt.imread("fond.png")
         fig, ax = plt.subplots(figsize=(10, 5))
-        ax.imshow(im, extent=[0, 4, 0.5, 5.5], aspect='auto', alpha=0.5, zorder=0)
+        ax.imshow(im, extent=[0, 4, 0.5, 5.5], aspect="auto", alpha=0.5, zorder=0)
 
-        ax.boxplot(data_filtree, vert=False, positions=positions, patch_artist=False, showfliers=False, zorder=1)
-        box = ax.boxplot(data_filtree, vert=False, positions=positions, patch_artist=False, showfliers=False, zorder=1)
+        ax.boxplot(
+            data_filtree,
+            vert=False,
+            positions=positions,
+            patch_artist=False,
+            showfliers=False,
+            zorder=1,
+        )
+        box = ax.boxplot(
+            data_filtree,
+            vert=False,
+            positions=positions,
+            patch_artist=False,
+            showfliers=False,
+            zorder=1,
+        )
 
-        ax.grid(axis='x', linestyle='--', linewidth=0.5, color='gray', alpha=0.7)
+        ax.grid(axis="x", linestyle="--", linewidth=0.5, color="gray", alpha=0.7)
 
-        for median in box['medians']:
-            median.set_color('red')
+        for median in box["medians"]:
+            median.set_color("red")
             median.set_linewidth(3)
 
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
-        ax.set_title(f'{vm_id} - {impact.capitalize()}')
+        ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.set_title(f"{vm_id} - {impact.capitalize()}")
         ax.set_ylabel("Sévérité", labelpad=55)
         ax.set_xlabel("Score d'exploitabilité")
         ax.set_xlim(0, 4.1)
@@ -1115,35 +1630,55 @@ def boite_vm(vm_id, folder_path):
             y_pos = pos
             x_pos = -0.43
             for text, color in nbVertOrangeRouge:
-                ax.text(x_pos, y_pos, text, ha='right', va='center', fontsize=11, color=color)
+                ax.text(
+                    x_pos,
+                    y_pos,
+                    text,
+                    ha="right",
+                    va="center",
+                    fontsize=11,
+                    color=color,
+                )
                 x_pos += 0.1
 
         # Ajuster dynamiquement le labelpad après redimensionnement
         def update_labelpad(event):
             """Ajuster dynamiquement le labelpad du label y."""
             fig_width, _ = fig.get_size_inches()
-            ax.set_ylabel("Sévérité", labelpad=fig_width * 5)  # Ajuste en fonction de la largeur
+            ax.set_ylabel(
+                "Sévérité", labelpad=fig_width * 5
+            )  # Ajuste en fonction de la largeur
 
         # Connecter l'événement de redimensionnement
         fig.canvas.mpl_connect("resize_event", update_labelpad)
-        plt.savefig(f'{folder_path}\\{name}.png', format='png', dpi=300)
-        if (p1Vert or p2Vert or p3Vert or p4Vert or p5Vert != 0) and (p1Orange == 0 and p1Rouge == 0 and p2Orange == 0 and p2Rouge == 0 and p3Orange == 0 and p4Orange == 0):
-            plt.savefig(f'{folder_VM_VERT}\\{name}.png', format='png', dpi=300)
-        if (p1Orange or p2Orange or p3Orange or p3Orange != 0) and (p1Rouge == 0 and p2Rouge == 0):
-            plt.savefig(f'{folder_VM_ORANGE}\\{name}.png', format='png', dpi=300)
+        plt.savefig(f"{folder_path}\\{name}.png", format="png", dpi=300)
+        if (p1Vert or p2Vert or p3Vert or p4Vert or p5Vert != 0) and (
+            p1Orange == 0
+            and p1Rouge == 0
+            and p2Orange == 0
+            and p2Rouge == 0
+            and p3Orange == 0
+            and p4Orange == 0
+        ):
+            plt.savefig(f"{folder_VM_VERT}\\{name}.png", format="png", dpi=300)
+        if (p1Orange or p2Orange or p3Orange or p3Orange != 0) and (
+            p1Rouge == 0 and p2Rouge == 0
+        ):
+            plt.savefig(f"{folder_VM_ORANGE}\\{name}.png", format="png", dpi=300)
         if p1Rouge or p2Rouge != 0:
-            plt.savefig(f'{folder_VM_ROUGE}\\{name}.png', format='png', dpi=300)
+            plt.savefig(f"{folder_VM_ROUGE}\\{name}.png", format="png", dpi=300)
         plt.close(fig)
-        
+
+
 def boite_vm_globale(folder_path):
     liste_dia = ["confidentiality", "integrity", "availability"]
 
     for impact in liste_dia:
-        p1 = dicoGlobal[impact]['p1']
-        p2 = dicoGlobal[impact]['p2']
-        p3 = dicoGlobal[impact]['p3']
-        p4 = dicoGlobal[impact]['p4']
-        p5 = dicoGlobal[impact]['p5']
+        p1 = dicoGlobal[impact]["p1"]
+        p2 = dicoGlobal[impact]["p2"]
+        p3 = dicoGlobal[impact]["p3"]
+        p4 = dicoGlobal[impact]["p4"]
+        p5 = dicoGlobal[impact]["p5"]
 
         p1Vert = 0
         p1Orange = 0
@@ -1157,7 +1692,36 @@ def boite_vm_globale(folder_path):
         p4Orange = 0
         p5Vert = 0
 
-        p1Vert, p1Orange, p1Rouge, p2Vert, p2Orange, p2Rouge, p3Vert, p3Orange, p4Vert, p4Orange, p5Vert = triAffichageVOR(p1, p2, p3, p4, p5, p1Vert, p1Orange, p1Rouge, p2Vert, p2Orange, p2Rouge, p3Vert, p3Orange, p4Vert, p4Orange, p5Vert)
+        (
+            p1Vert,
+            p1Orange,
+            p1Rouge,
+            p2Vert,
+            p2Orange,
+            p2Rouge,
+            p3Vert,
+            p3Orange,
+            p4Vert,
+            p4Orange,
+            p5Vert,
+        ) = triAffichageVOR(
+            p1,
+            p2,
+            p3,
+            p4,
+            p5,
+            p1Vert,
+            p1Orange,
+            p1Rouge,
+            p2Vert,
+            p2Orange,
+            p2Rouge,
+            p3Vert,
+            p3Orange,
+            p4Vert,
+            p4Orange,
+            p5Vert,
+        )
 
         data = [p5, p4, p3, p2, p1]
 
@@ -1176,20 +1740,34 @@ def boite_vm_globale(folder_path):
         date = now.strftime("%d.%m.%Y")
         im = plt.imread("fond.png")
         fig, ax = plt.subplots(figsize=(10, 5))
-        ax.imshow(im, extent=[0, 4, 0.5, 5.5], aspect='auto', alpha=0.5, zorder=0)
+        ax.imshow(im, extent=[0, 4, 0.5, 5.5], aspect="auto", alpha=0.5, zorder=0)
 
-        ax.boxplot(data_filtree, vert=False, positions=positions, patch_artist=False, showfliers=False, zorder=1)
-        box = ax.boxplot(data_filtree, vert=False, positions=positions, patch_artist=False, showfliers=False, zorder=1)
+        ax.boxplot(
+            data_filtree,
+            vert=False,
+            positions=positions,
+            patch_artist=False,
+            showfliers=False,
+            zorder=1,
+        )
+        box = ax.boxplot(
+            data_filtree,
+            vert=False,
+            positions=positions,
+            patch_artist=False,
+            showfliers=False,
+            zorder=1,
+        )
 
-        ax.grid(axis='x', linestyle='--', linewidth=0.5, color='gray', alpha=0.7)
+        ax.grid(axis="x", linestyle="--", linewidth=0.5, color="gray", alpha=0.7)
 
-        for median in box['medians']:
-            median.set_color('red')
+        for median in box["medians"]:
+            median.set_color("red")
             median.set_linewidth(3)
 
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
-        ax.set_title(f'Meta representation VM - {impact.capitalize()}')
+        ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.set_title(f"Meta representation VM - {impact.capitalize()}")
         ax.set_ylabel("Sévérité", labelpad=55)
         ax.set_xlabel("Score d'exploitabilité")
         ax.set_xlim(0, 4.1)
@@ -1202,28 +1780,40 @@ def boite_vm_globale(folder_path):
             y_pos = pos
             x_pos = -0.43
             for text, color in nbVertOrangeRouge:
-                ax.text(x_pos, y_pos, text, ha='right', va='center', fontsize=11, color=color)
+                ax.text(
+                    x_pos,
+                    y_pos,
+                    text,
+                    ha="right",
+                    va="center",
+                    fontsize=11,
+                    color=color,
+                )
                 x_pos += 0.1
 
         # Ajuster dynamiquement le labelpad après redimensionnement
         def update_labelpad(event):
             """Ajuster dynamiquement le labelpad du label y."""
             fig_width, _ = fig.get_size_inches()
-            ax.set_ylabel("Sévérité", labelpad=fig_width * 5)  # Ajuste en fonction de la largeur
+            ax.set_ylabel(
+                "Sévérité", labelpad=fig_width * 5
+            )  # Ajuste en fonction de la largeur
 
         # Connecter l'événement de redimensionnement
         fig.canvas.mpl_connect("resize_event", update_labelpad)
-        plt.savefig(f'{folder_VM_META}\\{name}.png', format='png', dpi=300)
+        plt.savefig(f"{folder_VM_META}\\{name}.png", format="png", dpi=300)
         plt.close(fig)
+
 
 def open_files():
     file_paths = filedialog.askopenfilenames(filetypes=[("JSON files", "*.json")])
     data_list = []
     for file_path in file_paths:
-        with open(file_path, 'r', encoding="utf-8") as file:
+        with open(file_path, "r", encoding="utf-8") as file:
             data = json.load(file)
             data_list.append(data)
     return data_list
+
 
 def parse_excel():
     file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
@@ -1237,13 +1827,19 @@ def parse_excel():
 
     # Prcourir toutes les colonnes à partir de la colonne B avec col = B et row = 2 (B2)
     for col in feuille.iter_cols(min_col=2, min_row=2, values_only=False):
-        col_index = col[0].column # Récupère l'index de la colonne actuelle (par ex 2 pour la colonne B).
-        col_name = feuille.cell(row=1, column=col_index).value  # Récupère le nom de la colonne
+        col_index = col[
+            0
+        ].column  # Récupère l'index de la colonne actuelle (par ex 2 pour la colonne B).
+        col_name = feuille.cell(
+            row=1, column=col_index
+        ).value  # Récupère le nom de la colonne
         print(col_name)
         for cell in col:
-            if cell.value and str(cell.value).lower() == 'oui':
+            if cell.value and str(cell.value).lower() == "oui":
                 row_index = cell.row
-                row_name = feuille[f"A{row_index}"].value  # Récupère la valeur de la colonne A pour cette ligne
+                row_name = feuille[
+                    f"A{row_index}"
+                ].value  # Récupère la valeur de la colonne A pour cette ligne
                 if col_name not in results:
                     results[col_name] = []
                 if row_name not in results[col_name]:
@@ -1251,23 +1847,28 @@ def parse_excel():
 
     print(results)
     cur.execute("DROP TABLE IF EXISTS jointure;")
-    cur.execute("""
+    cur.execute(
+        """
     CREATE TABLE IF NOT EXISTS jointure(
     num    INTEGER PRIMARY KEY AUTOINCREMENT,
     bs_id  TEXT NOT NULL,
     vm_id  TEXT,
     FOREIGN KEY (vm_id) REFERENCES valeurs_metiers(name));
-                """)
+                """
+    )
     for vm_id, bs_ids in results.items():
         for bs_id in bs_ids:
-            cur.execute("""
+            cur.execute(
+                """
                 INSERT INTO jointure (bs_id, vm_id)
                 VALUES (?, ?);
-            """, (bs_id, vm_id))
-    
+            """,
+                (bs_id, vm_id),
+            )
 
     conn.commit()
     return results
+
 
 def convert_level(value):
     if not value:
@@ -1280,10 +1881,11 @@ def convert_level(value):
         return 0.5
     return 0
 
+
 def parse_vm():
     root = Tk()
     root.withdraw()
-    file_path = filedialog.askopenfilename(filetypes=[("Excel files","*.xlsx")])
+    file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
     if not file_path:
         print("No Excel file selected.")
         return
@@ -1295,56 +1897,67 @@ def parse_vm():
         valeur_meiter = sheet.cell(row=row, column=8).value
         if not valeur_meiter:
             continue
-        D = convert_level(str(sheet.cell(row=row, column=10).value)) # colonne J
-        I = convert_level(str(sheet.cell(row=row, column=13).value)) # colonne M
-        C  = convert_level(str(sheet.cell(row=row, column=15).value)) # colonne O
+        D = convert_level(str(sheet.cell(row=row, column=10).value))  # colonne J
+        I = convert_level(str(sheet.cell(row=row, column=13).value))  # colonne M
+        C = convert_level(str(sheet.cell(row=row, column=15).value))  # colonne O
 
         results[valeur_meiter] = (D, I, C)
-    
+
     for valeur_meiter, (D, I, C) in results.items():
-        cur.execute("""
+        cur.execute(
+            """
             INSERT INTO valeurs_metiers (name, A, C, I)
             VALUES (?, ?, ?, ?)
             ON CONFLICT(name) DO UPDATE SET A=excluded.A, C=excluded.C, I=excluded.I;
-        """, (valeur_meiter, D, C, I))
+        """,
+            (valeur_meiter, D, C, I),
+        )
     conn.commit()
+
 
 # Définition du menu central du programme
 def afficher_menu():
     menu_options = [
-        ["1", "Sélectionner un ou plusieurs Vulnerability Disclosure Report (VDR) et le fichier Known Exploited Vulnerabilities (KEV) Catalog "],
+        [
+            "1",
+            "Sélectionner un ou plusieurs Vulnerability Disclosure Report (VDR) et le fichier Known Exploited Vulnerabilities (KEV) Catalog ",
+        ],
         ["2", "Lier un bien support (BS) à une valeur métier (VM)"],
-        ["3", "Affecter les valeurs DIC à un bien support (BS) en fonction de la valeur métier (VM)"],
+        [
+            "3",
+            "Affecter les valeurs DIC à un bien support (BS) en fonction de la valeur métier (VM)",
+        ],
         ["4", "Générer le traitement statistique des risques concernant les BS"],
         ["5", "Générer les boîtes à moustache VM"],
-        ["6", "Quitter"]
+        ["6", "Quitter"],
     ]
 
     print(tabulate(menu_options, tablefmt="fancy_grid", colalign=("center", "left")))
 
+
 if __name__ == "__main__":
     root = Tk()
     root.withdraw()
-    
+
     while True:
         afficher_menu()
-        #choix = input("\nChoissiez une option :")
-        #if choix == "5" :
-            #print("\nFermeture du programme.")
-            #break
-        #print("Choisir une étape:\n")
-        #print("1. Sélectionner un ou plusieurs Vulnerability Disclosure Report (VDR) et le fichier Known Exploited Vulnerabilities Catalog (KEV)")
-        #print("------------------------------------")
-        #print("2. Lier un bien support (BS) [microservice] à une valeur métier (VM)")
-        #print(" Mettre à jour la surface d'attaque d'un bien support (BS) [microservice]")
-        #print("Affecter les valeurs DIC à un bien support (BS) [microservice] en fonction de la valeur métier (VM)")
-        #print("Calculer le score environnemental de chaque bien support (BS) [microservice]")
-        #print("------------------------------------")
-        #print("3. Générer le traitement statistique descriptif des risques concernant les bien supports (BS) [microservice]")
-        #print("4. Générer les boîtes à moustache VM")
-        #print("5. Quitter")
+        # choix = input("\nChoissiez une option :")
+        # if choix == "5" :
+        # print("\nFermeture du programme.")
+        # break
+        # print("Choisir une étape:\n")
+        # print("1. Sélectionner un ou plusieurs Vulnerability Disclosure Report (VDR) et le fichier Known Exploited Vulnerabilities Catalog (KEV)")
+        # print("------------------------------------")
+        # print("2. Lier un bien support (BS) [microservice] à une valeur métier (VM)")
+        # print(" Mettre à jour la surface d'attaque d'un bien support (BS) [microservice]")
+        # print("Affecter les valeurs DIC à un bien support (BS) [microservice] en fonction de la valeur métier (VM)")
+        # print("Calculer le score environnemental de chaque bien support (BS) [microservice]")
+        # print("------------------------------------")
+        # print("3. Générer le traitement statistique descriptif des risques concernant les bien supports (BS) [microservice]")
+        # print("4. Générer les boîtes à moustache VM")
+        # print("5. Quitter")
 
-        option = input("Etape: ")     
+        option = input("Etape: ")
         if option == "1":
             vdr_data_list = open_files()
             kev_data = open_kev()
@@ -1354,48 +1967,60 @@ if __name__ == "__main__":
 
             for vdr_data in vdr_data_list:
                 # Accès aux données du VDR.json et parsing des variables
-                bs_id = vdr_data.get('metadata', {}).get('component', {}).get('name')
-                serialNumber = vdr_data.get('serialNumber')
+                bs_id = vdr_data.get("metadata", {}).get("component", {}).get("name")
+                serialNumber = vdr_data.get("serialNumber")
                 parsing(vdr_data, kev_data)
 
             cur.execute("DROP VIEW IF EXISTS impact_confidentiality;")
             cur.execute("DROP VIEW IF EXISTS impact_integrity;")
             cur.execute("DROP VIEW IF EXISTS impact_availability;")
 
-            cur.execute("""
+            cur.execute(
+                """
                 CREATE VIEW impact_confidentiality AS
                 SELECT * FROM biens_supports
                 WHERE impact_confidentiality != 'N';
-            """)
+            """
+            )
 
-            cur.execute("""
+            cur.execute(
+                """
                 CREATE VIEW impact_integrity AS
                 SELECT * FROM biens_supports
                 WHERE impact_integrity != 'N';
-            """)
+            """
+            )
 
-            cur.execute("""
+            cur.execute(
+                """
                 CREATE VIEW impact_availability AS
                 SELECT * FROM biens_supports
                 WHERE impact_availability != 'N';
-            """)
+            """
+            )
 
             conn.commit()
 
         elif option == "2":
-            print("Sélectionner le fichier excel contenant la liste des valeurs métiers (VM)")
+            print(
+                "Sélectionner le fichier excel contenant la liste des valeurs métiers (VM)"
+            )
             parse_vm()
-            print("Sélectionner le fichier excel contenant la liste des biens supports (BS) associés à une valeur métier (VM)")
+            print(
+                "Sélectionner le fichier excel contenant la liste des biens supports (BS) associés à une valeur métier (VM)"
+            )
             parse_excel()
 
             update_micro_heritage()
-            print("Valeurs D, C, I mises à jour dans biens_supports en fonction de la VM associée.")            
+            print(
+                "Valeurs D, C, I mises à jour dans biens_supports en fonction de la VM associée."
+            )
             option_5_calcul_scores()
             print("Scores environnementaux mis à jour.")
             conn.commit()
-            
+
         elif option == "3":
-            print("Affichage boîte à moustache")      
+            print("Affichage boîte à moustache")
             boite_path = filedialog.askdirectory()
             if not boite_path:
                 print("No folder selected.")
@@ -1412,8 +2037,8 @@ if __name__ == "__main__":
                 os.makedirs(subfolder_ORANGE, exist_ok=True)
             if not os.path.exists(subfolder_ROUGE):
                 os.makedirs(subfolder_ROUGE, exist_ok=True)
-            boite(boite_path)      
-        
+            boite(boite_path)
+
         elif option == "4":
             if not dicoListePx:
                 print("Please run option 2 first to populate data.")
@@ -1425,7 +2050,9 @@ if __name__ == "__main__":
             subfolder_VERT = os.path.join(folder_path, "03_VERT")
             subfolder_ORANGE = os.path.join(folder_path, "02_ORANGE")
             subfolder_ROUGE = os.path.join(folder_path, "01_ROUGE")
-            subfolder_VM_META = os.path.join(folder_path, "04_Meta_représentation_des_VM")
+            subfolder_VM_META = os.path.join(
+                folder_path, "04_Meta_représentation_des_VM"
+            )
             folder_VM_VERT = subfolder_VERT
             folder_VM_ORANGE = subfolder_ORANGE
             folder_VM_ROUGE = subfolder_ROUGE
@@ -1444,7 +2071,7 @@ if __name__ == "__main__":
                 vid = vid[0]
                 boite_vm(vid, folder_path)
             boite_vm_globale(folder_path)
-           
+
         elif option == "5":
             cur.close()
             conn.close()
