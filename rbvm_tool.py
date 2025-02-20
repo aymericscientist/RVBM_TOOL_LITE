@@ -53,6 +53,8 @@ class RBVMTool(QMainWindow):
         super().__init__()
 
         self.passphrase = self.get_secure_passphrase()
+        global passphrase
+        passphrase = self.passphrase
         print("\nPassphrase saisie avec succès")
 
         self.setWindowTitle("Risk Based Vulnerability Management (RBVM) Tool")
@@ -169,7 +171,18 @@ class RBVMTool(QMainWindow):
         )
 
 # Procédure 1 - Famille de fonctions 
-    def parse_vm():
+    def convert_level(self, value):
+        if not value:
+            return 0
+        if "E" in value:
+            return 1.5
+        elif "M" in value:
+            return 1
+        elif "L" in value:
+            return 0.5
+        return 0
+
+    def parse_vm(self):
         root = Tk()
         root.withdraw()
         file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
@@ -180,13 +193,15 @@ class RBVMTool(QMainWindow):
         wb = openpyxl.load_workbook(file_path)
         sheet = wb.active
         results = {}
+        
         for row in range(3, sheet.max_row + 1):
             valeur_meiter = sheet.cell(row=row, column=8).value
             if not valeur_meiter:
                 continue
-            D = convert_level(str(sheet.cell(row=row, column=10).value))  # colonne J
-            I = convert_level(str(sheet.cell(row=row, column=13).value))  # colonne M
-            C = convert_level(str(sheet.cell(row=row, column=15).value))  # colonne O
+
+            D = self.convert_level(str(sheet.cell(row=row, column=10).value))  # colonne J
+            I = self.convert_level(str(sheet.cell(row=row, column=13).value))  # colonne M
+            C = self.convert_level(str(sheet.cell(row=row, column=15).value))  # colonne O
 
             results[valeur_meiter] = (D, I, C)
 
@@ -1164,7 +1179,7 @@ class RBVMTool(QMainWindow):
             os.makedirs(subfolder_ORANGE, exist_ok=True)
         if not os.path.exists(subfolder_ROUGE):
             os.makedirs(subfolder_ROUGE, exist_ok=True)
-        boite(boite_path)
+        self.boite(boite_path)
     def start_conversion_MOA(self):
         if not dicoListePx:
             print("Données manquantes")
@@ -1194,10 +1209,10 @@ class RBVMTool(QMainWindow):
         v = cur.fetchall()
         for vid in v:
             vid = vid[0]
-            boite_vm(vid, folder_path)
-        boite_vm_globale(folder_path)
+            self.boite_vm(vid, folder_path)
+        self.boite_vm_globale(folder_path)
 
-# Initialisation UI
+# Famille de fonctions concernant l'IHM
     def initUI(self):
         """Initialise l'interface utilisateur"""
         central_widget = QWidget()
@@ -1380,27 +1395,21 @@ class RBVMTool(QMainWindow):
                 file_path
             )  # Intégrer les besoins de sécurité et sûreté des valeurs métiers
 
-
-
 if __name__ == "__main__":
     import sys
 
     app = QApplication(sys.argv)
     fenetre = RBVMTool()
     fenetre.show()
+
+    ## ==== prérequis BDD du programme ==== ##
+    conn = sqlite3.connect("rbvm.db")  # Connexion à la base de données SQLite chiffrée avec SQLCipher
+    conn.execute(f'PRAGMA passphrase = "{fenetre.passphrase}";')  # Appliquer la clé PRAGMA chiffrée à la connexion SQLite
+    conn.execute("PRAGMA foreign_passphrase = ON;")  # Appliquer la clé PRAGMA chiffrée à la connexion SQLite
+    cur = conn.cursor()  # Création du curseur
     sys.exit(app.exec_())  #  Lancement de l'application
 
-## ==== PARTIE N°2 Préparation des prérequis BDD du programme ==== ##
-conn = sqlite3.connect(
-    "rbvm.db"
-)  # Connexion à la base de données SQLite chiffrée avec SQLCipher
-conn.execute(
-    f'PRAGMA passphrase = "{passphrase}";'
-)  # Appliquer la clé PRAGMA chiffrée à la connexion SQLite
-conn.execute(
-    "PRAGMA foreign_passphrase = ON;"
-)  # Appliquer la clé PRAGMA chiffrée à la connexion SQLite
-cur = conn.cursor()  # Création du curseur
+
 
 # Création des tables
 cur.execute(
@@ -1479,9 +1488,7 @@ dicoI = {"p5": [], "p4": [], "p3": [], "p2": [], "p1": []}
 dicoA = {"p5": [], "p4": [], "p3": [], "p2": [], "p1": []}
 dicoGlobal = {"confidentiality": dicoC, "integrity": dicoI, "availability": dicoA}
 
-
-
-##### CLASSES ET LISTES #####
+##### CLASSES  #####
 class CVE:
     def __init__(
         self,
