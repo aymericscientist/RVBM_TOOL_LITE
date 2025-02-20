@@ -16,6 +16,11 @@ import requests
 from datetime import datetime
 from contextlib import ExitStack
 
+# Désactiver l'avertissement indiquant que certaines fonctionnalités du fichier excel ne sont pas prise en charge comme "Conditional Formatting extension is not supported and will be removed" et "Data Validation extension is not supported and will be removed" 
+import warnings
+warnings.simplefilter("ignore", UserWarning)
+
+
 # Imports pour la gestion des fichiers et des données
 import openpyxl  # Manipulation des fichiers Excel
 import pandas as pd  # Manipulation et analyse de données sous forme de DataFrames
@@ -46,6 +51,34 @@ from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 # Imports Tkinter pour les boîtes de dialogue de fichiers
 from tkinter import Tk, filedialog
 
+##### VARIABLES GLOBALES #####
+attack_vector = None
+attack_complexity = None
+privileges_required = None
+user_interaction = None
+scope = None
+confidentiality = None
+integrity = None
+availability = None
+authentification = None
+exp_score = None
+env_score = None
+kev = None
+folder_BS_VERT = None
+folder_BS_ORANGE = None
+folder_BS_ROUGE = None
+folder_VM_VERT = None
+folder_VM_ORANGE = None
+folder_VM_ROUGE = None
+folder_VM_META = None
+
+# Dictionnaire permettant de stocker les biens supports ainsi que leurs valeurs P1, P2, P3, P4, P5,
+dicoListePx = {}
+dicoC = {"p5": [], "p4": [], "p3": [], "p2": [], "p1": []}
+dicoI = {"p5": [], "p4": [], "p3": [], "p2": [], "p1": []}
+dicoA = {"p5": [], "p4": [], "p3": [], "p2": [], "p1": []}
+dicoGlobal = {"confidentiality": dicoC, "integrity": dicoI, "availability": dicoA}
+
 ## ==== PARTIE N°1 Définition de l'IHM ==== ##
 
 class RBVMTool(QMainWindow):
@@ -65,7 +98,6 @@ class RBVMTool(QMainWindow):
 
 # Famille de fonction pour la passphrase
     def get_secure_passphrase(self):
-        """Demande une passphrase avec option de génération automatique"""
         while True:
             passphrase, ok = self.ask_for_passphrase()
 
@@ -86,9 +118,8 @@ class RBVMTool(QMainWindow):
                     "- 1 majuscule\n"
                     "- 1 chiffre\n"
                     "- 1 caractère spécial",
-                )
+                ) # Demande une passphrase avec option de génération automatique
     def ask_for_passphrase(self):
-        """Boîte de dialogue améliorée avec option de génération automatique"""
         dialog = QMessageBox()
         dialog.setWindowTitle("Chiffrement BDD obligatoire")
         dialog.setText(
@@ -125,20 +156,17 @@ class RBVMTool(QMainWindow):
         if dialog.clickedButton() == ok_button:
             return passphrase_input.text(), True
         else:
-            return "", False
+            return "", False # Demande une passphrase avec option de génération automatique
     def generate_and_set_passphrase(self, input_field):
-        """Génère une passphrase forte et l'affiche"""
         new_passphrase = self.generate_secure_passphrase()
-        input_field.setText(new_passphrase)
+        input_field.setText(new_passphrase) # Génère une passphrase forte et l'affiche
     def copy_to_clipboard(self, text):
-        """Copie la passphrase générée dans le presse-papier"""
         clipboard = QApplication.clipboard()
         clipboard.setText(text)
         QMessageBox.information(
             None, "Copié !", "Passphrase copiée dans le presse-papier."
-        )
+        ) # Copie la passphrase dans le presse-papier
     def generate_secure_passphrase(self, length=20):
-        """Génère une passphrase forte respectant les exigences minimales."""
         if length < 8:
             raise ValueError(
                 "La longueur minimale de la passphrase doit être de 8 caractères."
@@ -161,16 +189,15 @@ class RBVMTool(QMainWindow):
 
             # Vérifier que la passphrase respecte les exigences
             if self.is_passphrase_valid(passphrase):
-                return passphrase
+                return passphrase # Génère une passphrase forte
     def is_passphrase_valid(self, passphrase):
-        """Vérifie que la passphrase respecte les exigences"""
         return bool(
             re.match(
                 r"^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$", passphrase
             )
-        )
+        ) # Vérifie si la passphrase est valide
 
-# Procédure 1 - Famille de fonctions 
+# Procédure 1 - Famille de fonctions concernant la récupération et l'intégration des valeurs métiers et de leurs besoins
     def convert_level(self, value):
         if not value:
             return 0
@@ -180,85 +207,154 @@ class RBVMTool(QMainWindow):
             return 1
         elif "L" in value:
             return 0.5
-        return 0
+        return 0 # Conversion de la métrique qualitative sémantique CVSS en valeur numérique
+    def master_function_charger_VM(self): 
+        # Étape 1 : Sélection du fichier
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Sélectionner un fichier Excel",
+            "",
+            "Excel Files (*.xlsx *.xls);;All Files (*)",
+        )
 
-    def parse_vm(self):
-        root = Tk()
-        root.withdraw()
-        file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
         if not file_path:
-            print("No Excel file selected.")
+            print("⚠ Aucun fichier sélectionné.")
+            return
+
+        # Mise à jour de l'UI
+        self.security_input.setText(file_path)
+        print(f"📂 Fichier sélectionné : {file_path}")
+
+        # Étape 2 : Extraction et traitement des valeurs métiers
+        try:
+            # Charger le fichier Excel
+            wb = openpyxl.load_workbook(file_path)
+            sheet = wb.active
+            results = {}
+
+            # Identifier les colonnes contenant les besoins DIC
+            col_dispo = 7   # G - Besoin de disponibilité (Dx)
+            col_integ = 10  # J - Besoin d’intégrité (Ix)
+            col_confid = 13 # M - Besoin de confidentialité (Cx)
+
+            for row in range(3, sheet.max_row + 1):
+                valeur_metier = sheet.cell(row=row, column=7).value  # Fonctionnalité (colonne G)
+                if not valeur_metier:
+                    continue
+
+                D = self.convert_level(str(sheet.cell(row=row, column=col_dispo).value))  # Disponibilité
+                I = self.convert_level(str(sheet.cell(row=row, column=col_integ).value))  # Intégrité
+                C = self.convert_level(str(sheet.cell(row=row, column=col_confid).value))  # Confidentialité
+
+                results[valeur_metier] = (D, I, C)
+
+            # Étape 3 : Insertion des données dans la base de données
+            conn = sqlite3.connect("rbvm.db")
+            cur = conn.cursor()
+
+            # Création des tables
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS valeurs_metiers(
+                    name TEXT PRIMARY KEY,
+                    C REAL,
+                    I REAL,
+                    A REAL      
+                );
+                """
+            )
+            conn.commit()
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS biens_supports(
+                    bs_id TEXT NOT NULL, 
+                    cve_id TEXT,
+                    bom_ref TEXT,
+                    composant_ref TEXT,
+                    severity TEXT,
+                    score_cvss REAL,
+                    attack_vector REAL,
+                    attack_complexity REAL,
+                    privileges_required REAL,
+                    user_interaction REAL,
+                    scope TEXT,
+                    impact_confidentiality TEXT,
+                    impact_integrity TEXT,
+                    impact_availability TEXT,
+                    exp_score REAL,
+                    env_score REAL,
+                    KEV TEXT,
+                    C_heritage REAL,
+                    I_heritage REAL,
+                    A_heritage REAL,
+                    PRIMARY KEY (bs_id, cve_id)
+                );
+                """
+            )
+            conn.commit()
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS jointure(
+                    num INTEGER PRIMARY KEY AUTOINCREMENT,
+                    bs_id TEXT NOT NULL,
+                    vm_id TEXT,
+                    FOREIGN KEY (vm_id) REFERENCES valeurs_metiers(name)
+                );
+                """
+            )
+            conn.commit()
+
+            # Insertion des données dans la table `valeurs_metiers`
+            for valeur_metier, (D, I, C) in results.items():
+                cur.execute(
+                    """
+                    INSERT INTO valeurs_metiers (name, A, C, I)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(name) DO UPDATE SET A=excluded.A, C=excluded.C, I=excluded.I;
+                    """,
+                    (valeur_metier, D, C, I),
+                )
+
+            conn.commit()
+
+            print("✅ Données des valeurs métiers enregistrées avec succès.")
+
+        except Exception as e:
+            print(f"❌ Erreur lors du traitement du fichier : {e}") # Sélectionne et charge les besoins de sécurité des valeurs métiers (DIC) depuis un fichier Excel
+    
+# Procédure 2 - Famille de fonctions
+    def parse_excel():
+        file_path = self.matrix_input.text().strip() # récupère le fichier téléverser à l'étape 2
+        if not file_path:
+            print("Aucun fichier téléversé à l'étape 2")
             return
 
         wb = openpyxl.load_workbook(file_path)
-        sheet = wb.active
+        feuille = wb.active
+        vm_names = [feuille.cell(row=1, column=col).value for col in range(2, feuille.max_column + 1)] # Récupération des noms de valeurs métier (VM) à partir de la première ligne (hors colonne A)
+        bs_names = [feuille.cell(row=row, column=1).value for row in range(2, feuille.max_row + 1)] # Récupération des noms des biens supports (BS) à partir de la colonne A (hors ligne 1)
         results = {}
-        
-        for row in range(3, sheet.max_row + 1):
-            valeur_meiter = sheet.cell(row=row, column=8).value
-            if not valeur_meiter:
+
+        # Parcourir la matrice pour récupérer les associations (biens supports - valeurs métier)
+        for col_idx, vm_name in enumerate(vm_names, start=2):  # Colonnes B à la dernière
+            if not vm_name:
                 continue
+        
+            for row_idx, bs_name in enumerate(bs_names, start=2):  # Lignes 2 à la dernière
+                cell_value = feuille.cell(row=row_idx, column=col_idx).value
+            
+                if cell_value and str(cell_value).strip().lower() == "oui":
+                    if vm_name not in results:
+                        results[vm_name] = []
+                    results[vm_name].append(bs_name)
 
-            D = self.convert_level(str(sheet.cell(row=row, column=10).value))  # colonne J
-            I = self.convert_level(str(sheet.cell(row=row, column=13).value))  # colonne M
-            C = self.convert_level(str(sheet.cell(row=row, column=15).value))  # colonne O
+        print("✅ Matrice BS-VM traitée avec succès :", results)  # Vérification en console
+        
+        # Étape 3 : Insertion des données dans la base de données
+        conn = sqlite3.connect("rbvm.db")
+        cur = conn.cursor()
 
-            results[valeur_meiter] = (D, I, C)
-
-        for valeur_meiter, (D, I, C) in results.items():
-            cur.execute(
-                """
-                INSERT INTO valeurs_metiers (name, A, C, I)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(name) DO UPDATE SET A=excluded.A, C=excluded.C, I=excluded.I;
-            """,
-                (valeur_meiter, D, C, I),
-            )
-        conn.commit() # Récupération des valeurs DIC|CVSS 3.1 pour chaque valeur métier        
-
-# Procédure 2 - Famille de fonctions
-    def parse_excel():
-        file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
-        if not file_path:
-            print("No .xlsx file selected.")
-            return
-
-        excel = openpyxl.load_workbook(file_path)
-        feuille = excel.active
-        results = {}
-
-        # Parcourir toutes les colonnes à partir de la colonne B avec col = B et row = 2 (B2)
-        for col in feuille.iter_cols(min_col=2, min_row=2, values_only=False):
-            col_index = col[
-                0
-            ].column  # Récupère l'index de la colonne actuelle (par ex 2 pour la colonne B).
-            col_name = feuille.cell(
-                row=1, column=col_index
-            ).value  # Récupère le nom de la colonne
-            print(col_name)
-            for cell in col:
-                if cell.value and str(cell.value).lower() == "oui":
-                    row_index = cell.row
-                    row_name = feuille[
-                        f"A{row_index}"
-                    ].value  # Récupère la valeur de la colonne A pour cette ligne
-                    if col_name not in results:
-                        results[col_name] = []
-                    if row_name not in results[col_name]:
-                        results[col_name].append(row_name)
-
-        print(results)
-        cur.execute("DROP TABLE IF EXISTS jointure;")
-        cur.execute(
-            """
-        CREATE TABLE IF NOT EXISTS jointure(
-        num    INTEGER PRIMARY KEY AUTOINCREMENT,
-        bs_id  TEXT NOT NULL,
-        vm_id  TEXT,
-        FOREIGN KEY (vm_id) REFERENCES valeurs_metiers(name));
-                    """
-        )
-        for vm_id, bs_ids in results.items():
+        for vm_id, bs_ids in results.items():  # Insérer les relations dans la table jointure
             for bs_id in bs_ids:
                 cur.execute(
                     """
@@ -267,7 +363,6 @@ class RBVMTool(QMainWindow):
                 """,
                     (bs_id, vm_id),
                 )
-
         conn.commit()
         return results    
     def update_micro_heritage():
@@ -294,8 +389,292 @@ class RBVMTool(QMainWindow):
                     WHERE j.bs_id = biens_supports.bs_id
                 );
         """)
+        conn.commit() # Mettre à jour les valeurs C (confidentialité), I (intégrité) et A (disponibilité) dans biens_supports en fonction de la valeur métier associée, si plusieurs associations alors Max       
+
+    def process_matrix_data(self):
+        # Étape 1 : Sélection du fichier via l'interface
+        self.browse_matrix()
+    
+        # Vérifier si un fichier a bien été sélectionné
+        file_path = self.matrix_input.text().strip()
+        if not file_path:
+            print("❌ Aucun fichier téléversé à l'étape 2.")
+            return
+
+        # Étape 2 : Extraction des données de la matrice
+        wb = openpyxl.load_workbook(file_path)
+        feuille = wb.active
+        vm_names = [feuille.cell(row=1, column=col).value for col in range(2, feuille.max_column + 1)] # Récupération des noms des valeurs métiers (VM) à partir de la première ligne (hors colonne A)
+        bs_names = [feuille.cell(row=row, column=1).value for row in range(2, feuille.max_row + 1)] # Récupération des noms des biens supports (BS) à partir de la colonne A (hors ligne 1)
+        results = {}
+
+        # Analyse de la matrice BS-VM
+        for col_idx, vm_name in enumerate(vm_names, start=2):  # Colonnes B à la dernière
+            if not vm_name:
+                continue
+
+            for row_idx, bs_name in enumerate(bs_names, start=2):  # Lignes 2 à la dernière
+                cell_value = feuille.cell(row=row_idx, column=col_idx).value
+
+                if cell_value and str(cell_value).strip().lower() == "oui":
+                    if vm_name not in results:
+                        results[vm_name] = []
+                    results[vm_name].append(bs_name)
+
+        print("✅ Matrice BS-VM traitée avec succès :", results)  # Vérification en console
+
+        # Étape 3 : Insertion des données dans la base de données
+        conn = sqlite3.connect("rbvm.db")
+        cur = conn.cursor()
+    
+        for vm_id, bs_ids in results.items():  # Insérer les relations dans la table `jointure`
+            for bs_id in bs_ids:
+                cur.execute(
+                    """
+                    INSERT INTO jointure (bs_id, vm_id)
+                    VALUES (?, ?);
+                    """,
+                    (bs_id, vm_id),
+                )
         conn.commit()
-         # Mettre à jour les valeurs C (confidentialité), I (intégrité) et A (disponibilité) dans biens_supports en fonction de la valeur métier associée
+    
+        print("✅ Relations BS-VM enregistrées avec succès.")
+
+        # Étape 4 : Mise à jour des valeurs héritées C, I, A
+        cur.execute(
+            """
+            UPDATE biens_supports
+            SET 
+                C_heritage = (
+                    SELECT MAX(vm.C)
+                    FROM jointure j
+                    JOIN valeurs_metiers vm ON j.vm_id = vm.name
+                    WHERE j.bs_id = biens_supports.bs_id
+                ),
+                I_heritage = (
+                    SELECT MAX(vm.I)
+                    FROM jointure j
+                    JOIN valeurs_metiers vm ON j.vm_id = vm.name
+                    WHERE j.bs_id = biens_supports.bs_id
+                ),
+                A_heritage = (
+                    SELECT MAX(vm.A)
+                    FROM jointure j
+                    JOIN valeurs_metiers vm ON j.vm_id = vm.name
+                    WHERE j.bs_id = biens_supports.bs_id
+                );
+            """
+        )
+        conn.commit()
+
+        print("✅ Mise à jour des valeurs héritées C, I, A terminée.")
+
+
+# Procédure 3 - passe directement à la procédure n04
+
+# Procédure 4 -  Famille de fonctions concernant la récupération et le traitement VDR + KEV
+    def browse_vdr(self):
+        """Ouvre une boîte de dialogue pour sélectionner des fichiers VDR et les charge."""
+        try:
+            file_paths, _ = QFileDialog.getOpenFileNames(
+                self,
+                "Sélectionner un ou plusieurs VDR",
+                "",
+                "JSON Files (*.json);;All Files (*)",
+            )
+
+            if not file_paths:
+                return  # Aucune sélection, on ne fait rien
+
+            self.vdr_data_list = []  # Réinitialiser la liste
+
+            for file_path in file_paths:
+                with open(file_path, "r", encoding="utf-8") as file:
+                    data = json.load(file)
+                    self.vdr_data_list.append(data)
+
+            # Met à jour le champ texte avec les fichiers sélectionnés
+            self.vdr_input.setText(", ".join(file_paths))
+
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Erreur lors du chargement des fichiers VDR : {e}")
+    def browse_kev(self):
+        #"""Ouvre une boîte de dialogue pour sélectionner un fichier KEV local ou le télécharger."""
+        self.automatic_download.setChecked(False)
+        self.local_file_option.setChecked(True)
+        QApplication.processEvents()
+        if self.automatic_download.isChecked():
+            self.download_kev()  # Téléchargement automatique
+        elif self.local_file_option.isChecked():
+            file_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Sélectionner le fichier KEV",
+                "",
+                "JSON Files (*.json);;CSV Files (*.csv);;All Files (*)",
+            )
+
+            if file_path:
+                self.kev_input.setText(file_path)  # Mise à jour de l'interface
+                self.load_kev_data(file_path)  # Charger les données KEV depuis le fichier sélectionné
+        else:
+            QMessageBox.warning(self, "Avertissement", "Veuillez sélectionner une méthode pour récupérer le fichier KEV.") # Fonction nominale pour le KEV
+    def browse_kev_manual(self):    
+        self.local_file_option.click() # 🔹 Simule un clic sur "Sélectionner un fichier local" pour forcer l'activation
+        QApplication.processEvents() # 🔹 Forcer la mise à jour de l'UI pour s'assurer que le changement est pris en compte
+        file_path, _ = QFileDialog.getOpenFileName( # 🔹 Ouvre la boîte de dialogue pour sélectionner un fichier
+            self,
+            "Sélectionner le fichier KEV",
+            "",
+            "JSON Files (*.json);;CSV Files (*.csv);;All Files (*)",
+        )
+
+        if file_path:
+            self.kev_input.setText(file_path)  # Met à jour le champ texte
+            self.load_kev_data(file_path)  # Fonction permettant de mettre à jour l'UI dès que l'utilisateur veut téléverser manuellement le KEV Catalog
+    def download_kev(self):
+        """Télécharge automatiquement le fichier KEV depuis CISA et le charge."""
+        url = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+        file_path = "known_exploited_vulnerabilities.json"
+
+        try:
+            response = requests.get(url, stream=True)
+            response.raise_for_status()  # Vérifie les erreurs HTTP
+
+            with open(file_path, "wb") as file:
+                for chunk in response.iter_content(1024):
+                    file.write(chunk)
+
+            self.kev_input.setText(file_path)  # Mise à jour de l'interface
+            self.load_kev_data(file_path)  # Charger les données KEV après le téléchargement
+            QMessageBox.information(self, "Succès", "Le fichier KEV a été téléchargé et chargé avec succès.")
+
+        except requests.RequestException as e:
+            QMessageBox.critical(self, "Erreur", f"Échec du téléchargement : {e}")
+    def load_kev_data(self, file_path):
+        """Charge les données KEV depuis un fichier JSON."""
+        try:
+            with open(file_path, "r", encoding="utf-8") as file:
+                self.kev_data = json.load(file)
+            print("✅ Données KEV chargées avec succès !")
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Erreur lors du chargement du fichier KEV : {e}")
+    def master_function_charger_VDR(self):
+        try:
+            self.browse_vdr()  # Étape 1 : Sélection des fichiers VDR
+
+            if not self.vdr_data_list:
+                QMessageBox.warning(self, "Avertissement", "Aucun fichier VDR sélectionné.")
+                return  # Arrêt si aucun fichier n'est chargé
+
+            # Vérifier la méthode choisie pour le KEV
+            if self.automatic_download.isChecked():
+                self.download_kev()  # Télécharge le KEV
+                return  # Attendre avant de continuer
+            elif self.local_file_option.isChecked():
+                kev_file_path = self.kev_input.text().strip()
+                if kev_file_path:
+                    self.load_kev_data(kev_file_path)  # Charger le fichier KEV sélectionné
+                else:
+                    QMessageBox.warning(self, "Avertissement", "Aucun fichier KEV sélectionné.")
+                    return  # Arrêt si aucun fichier KEV n'est fourni
+            else:
+                QMessageBox.warning(self, "Avertissement", "Veuillez sélectionner une méthode pour obtenir le fichier KEV.")
+                return
+
+            if not self.kev_data:
+                QMessageBox.warning(self, "Avertissement", "Le fichier KEV n'a pas pu être chargé.")
+                return  # Arrêt si aucun KEV n'est chargé
+
+            # Traitement des fichiers VDR
+            for vdr_data in self.vdr_data_list:
+                bs_id = vdr_data.get("metadata", {}).get("component", {}).get("name")
+                serialNumber = vdr_data.get("serialNumber")
+
+                if not bs_id or not serialNumber:
+                    print("⚠ VDR invalide, absence de `bs_id` ou `serialNumber`.")
+                    continue  # Ignore ce fichier VDR
+
+                self.parsing(vdr_data, self.kev_data)
+
+            # Mise à jour des vues SQL
+            self.update_sql_views()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Une erreur s'est produite : {e}") # Charge les fichiers VDR, les analyse et met à jour la base de données
+    def parsing(self, vdr_data, kev_data):
+        """Analyse les fichiers VDR et met à jour la base de données."""
+        try:
+            list_vulnerabilities = vdr_data.get("vulnerabilities", [])
+
+            for vulnerability in list_vulnerabilities:
+                cve_id = vulnerability.get("id")
+                if not cve_id or "GHSA" in cve_id:
+                    continue
+
+                # Récupération des valeurs essentielles
+                score_CVSS = vulnerability.get("ratings", [{}])[0].get("score")
+                severity = vulnerability.get("ratings", [{}])[0].get("severity")
+                method = vulnerability.get("ratings", [{}])[0].get("method")
+
+                if not score_CVSS or "CVSSv2" in method:
+                    continue
+
+                # Vérification si c'est une CVE connue exploitée (KEV)
+                kev = "YES" if cve_id in kev_data else "NO"
+
+                # Ajout dans la base de données
+                cur.execute(
+                    """
+                    INSERT INTO biens_supports(
+                        bs_id, cve_id, severity, score_cvss, KEV
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT (bs_id, cve_id) DO NOTHING;
+                    """,
+                    (vdr_data.get("metadata", {}).get("component", {}).get("name"), cve_id, severity, score_CVSS, kev),
+                )
+
+            conn.commit()
+
+        except Exception as e:
+            print(f"Erreur dans `parsing()`: {e}")
+    def update_sql_views(self):
+        """Mise à jour des vues SQL pour les impacts (Confidentialité, Intégrité, Disponibilité)."""
+        try:
+            cur.execute("DROP VIEW IF EXISTS impact_confidentiality;")
+            cur.execute("DROP VIEW IF EXISTS impact_integrity;")
+            cur.execute("DROP VIEW IF EXISTS impact_availability;")
+
+            cur.execute(
+                """
+                CREATE VIEW impact_confidentiality AS
+                SELECT * FROM biens_supports
+                WHERE impact_confidentiality != 'N';
+                """
+            )
+
+            cur.execute(
+                """
+                CREATE VIEW impact_integrity AS
+                SELECT * FROM biens_supports
+                WHERE impact_integrity != 'N';
+                """
+            )
+
+            cur.execute(
+                """
+                CREATE VIEW impact_availability AS
+                SELECT * FROM biens_supports
+                WHERE impact_availability != 'N';
+                """
+            )
+
+            conn.commit()
+            print("✅ Vues SQL mises à jour.")
+
+        except Exception as e:
+            print(f"Erreur lors de la mise à jour des vues SQL : {e}")
+
     def option_5_calcul_scores():
         # Dictionnaire pour stocker les scores par bs_id et cve_id
         scores_dict = {}
@@ -388,216 +767,10 @@ class RBVMTool(QMainWindow):
                 """,
                     (env_score, bs_id, cve_id),
                 )
-        conn.commit()
-
-# Procédure 3 - passe directement à la procédure n04
-
-# Procédure 4 -  Famille de fonctions concernant la récupération et le traitement VDR + KEV
-    def browse_vdr(self):
-        """Ouvre une boîte de dialogue pour sélectionner des fichiers VDR et les charge."""
-        try:
-            file_paths, _ = QFileDialog.getOpenFileNames(
-                self,
-                "Sélectionner un ou plusieurs VDR",
-                "",
-                "JSON Files (*.json);;All Files (*)",
-            )
-
-            if not file_paths:
-                return  # Aucune sélection, on ne fait rien
-
-            self.vdr_data_list = []  # Réinitialiser la liste
-
-            for file_path in file_paths:
-                with open(file_path, "r", encoding="utf-8") as file:
-                    data = json.load(file)
-                    self.vdr_data_list.append(data)
-
-            # Met à jour le champ texte avec les fichiers sélectionnés
-            self.vdr_input.setText(", ".join(file_paths))
-
-        except Exception as e:
-            QMessageBox.critical(self, "Erreur", f"Erreur lors du chargement des fichiers VDR : {e}")
-    def browse_kev(self):
-        #"""Ouvre une boîte de dialogue pour sélectionner un fichier KEV local ou le télécharger."""
-        self.automatic_download.setChecked(False)
-        self.local_file_option.setChecked(True)
-        QApplication.processEvents()
-        if self.automatic_download.isChecked():
-            self.download_kev()  # Téléchargement automatique
-        elif self.local_file_option.isChecked():
-            file_path, _ = QFileDialog.getOpenFileName(
-                self,
-                "Sélectionner le fichier KEV",
-                "",
-                "JSON Files (*.json);;CSV Files (*.csv);;All Files (*)",
-            )
-
-            if file_path:
-                self.kev_input.setText(file_path)  # Mise à jour de l'interface
-                self.load_kev_data(file_path)  # Charger les données KEV depuis le fichier sélectionné
-        else:
-            QMessageBox.warning(self, "Avertissement", "Veuillez sélectionner une méthode pour récupérer le fichier KEV.") # Fonction nominale pour le KEV
-    def browse_kev_manual(self):    
-        self.local_file_option.click() # 🔹 Simule un clic sur "Sélectionner un fichier local" pour forcer l'activation
-        QApplication.processEvents() # 🔹 Forcer la mise à jour de l'UI pour s'assurer que le changement est pris en compte
-        file_path, _ = QFileDialog.getOpenFileName( # 🔹 Ouvre la boîte de dialogue pour sélectionner un fichier
-            self,
-            "Sélectionner le fichier KEV",
-            "",
-            "JSON Files (*.json);;CSV Files (*.csv);;All Files (*)",
-        )
-
-        if file_path:
-            self.kev_input.setText(file_path)  # Met à jour le champ texte
-            self.load_kev_data(file_path)  # Fonction permettant de mettre à jour l'UI dès que l'utilisateur veut téléverser manuellement le KEV Catalog
-    def download_kev(self):
-        """Télécharge automatiquement le fichier KEV depuis CISA et le charge."""
-        url = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
-        file_path = "known_exploited_vulnerabilities.json"
-
-        try:
-            response = requests.get(url, stream=True)
-            response.raise_for_status()  # Vérifie les erreurs HTTP
-
-            with open(file_path, "wb") as file:
-                for chunk in response.iter_content(1024):
-                    file.write(chunk)
-
-            self.kev_input.setText(file_path)  # Mise à jour de l'interface
-            self.load_kev_data(file_path)  # Charger les données KEV après le téléchargement
-            QMessageBox.information(self, "Succès", "Le fichier KEV a été téléchargé et chargé avec succès.")
-
-        except requests.RequestException as e:
-            QMessageBox.critical(self, "Erreur", f"Échec du téléchargement : {e}")
-    def load_kev_data(self, file_path):
-        """Charge les données KEV depuis un fichier JSON."""
-        try:
-            with open(file_path, "r", encoding="utf-8") as file:
-                self.kev_data = json.load(file)
-            print("✅ Données KEV chargées avec succès !")
-        except Exception as e:
-            QMessageBox.critical(self, "Erreur", f"Erreur lors du chargement du fichier KEV : {e}")
-    def master_function_charger_VDR(self):
-        #"""Charge les fichiers VDR, les analyse et met à jour la base de données."""
-        try:
-            self.browse_vdr()  # Étape 1 : Sélection des fichiers VDR
-
-            if not self.vdr_data_list:
-                QMessageBox.warning(self, "Avertissement", "Aucun fichier VDR sélectionné.")
-                return  # Arrêt si aucun fichier n'est chargé
-
-            # Vérifier la méthode choisie pour le KEV
-            if self.automatic_download.isChecked():
-                self.download_kev()  # Télécharge le KEV
-                return  # Attendre avant de continuer
-            elif self.local_file_option.isChecked():
-                kev_file_path = self.kev_input.text().strip()
-                if kev_file_path:
-                    self.load_kev_data(kev_file_path)  # Charger le fichier KEV sélectionné
-                else:
-                    QMessageBox.warning(self, "Avertissement", "Aucun fichier KEV sélectionné.")
-                    return  # Arrêt si aucun fichier KEV n'est fourni
-            else:
-                QMessageBox.warning(self, "Avertissement", "Veuillez sélectionner une méthode pour obtenir le fichier KEV.")
-                return
-
-            if not self.kev_data:
-                QMessageBox.warning(self, "Avertissement", "Le fichier KEV n'a pas pu être chargé.")
-                return  # Arrêt si aucun KEV n'est chargé
-
-            # Traitement des fichiers VDR
-            for vdr_data in self.vdr_data_list:
-                bs_id = vdr_data.get("metadata", {}).get("component", {}).get("name")
-                serialNumber = vdr_data.get("serialNumber")
-
-                if not bs_id or not serialNumber:
-                    print("⚠ VDR invalide, absence de `bs_id` ou `serialNumber`.")
-                    continue  # Ignore ce fichier VDR
-
-                self.parsing(vdr_data, self.kev_data)
-
-            # Mise à jour des vues SQL
-            self.update_sql_views()
-
-        except Exception as e:
-            QMessageBox.critical(self, "Erreur", f"Une erreur s'est produite : {e}")
-    def parsing(self, vdr_data, kev_data):
-        """Analyse les fichiers VDR et met à jour la base de données."""
-        try:
-            list_vulnerabilities = vdr_data.get("vulnerabilities", [])
-
-            for vulnerability in list_vulnerabilities:
-                cve_id = vulnerability.get("id")
-                if not cve_id or "GHSA" in cve_id:
-                    continue
-
-                # Récupération des valeurs essentielles
-                score_CVSS = vulnerability.get("ratings", [{}])[0].get("score")
-                severity = vulnerability.get("ratings", [{}])[0].get("severity")
-                method = vulnerability.get("ratings", [{}])[0].get("method")
-
-                if not score_CVSS or "CVSSv2" in method:
-                    continue
-
-                # Vérification si c'est une CVE connue exploitée (KEV)
-                kev = "YES" if cve_id in kev_data else "NO"
-
-                # Ajout dans la base de données
-                cur.execute(
-                    """
-                    INSERT INTO biens_supports(
-                        bs_id, cve_id, severity, score_cvss, KEV
-                    )
-                    VALUES (?, ?, ?, ?, ?)
-                    ON CONFLICT (bs_id, cve_id) DO NOTHING;
-                    """,
-                    (vdr_data.get("metadata", {}).get("component", {}).get("name"), cve_id, severity, score_CVSS, kev),
-                )
-
-            conn.commit()
-
-        except Exception as e:
-            print(f"Erreur dans `parsing()`: {e}")
-    def update_sql_views(self):
-        """Mise à jour des vues SQL pour les impacts (Confidentialité, Intégrité, Disponibilité)."""
-        try:
-            cur.execute("DROP VIEW IF EXISTS impact_confidentiality;")
-            cur.execute("DROP VIEW IF EXISTS impact_integrity;")
-            cur.execute("DROP VIEW IF EXISTS impact_availability;")
-
-            cur.execute(
-                """
-                CREATE VIEW impact_confidentiality AS
-                SELECT * FROM biens_supports
-                WHERE impact_confidentiality != 'N';
-                """
-            )
-
-            cur.execute(
-                """
-                CREATE VIEW impact_integrity AS
-                SELECT * FROM biens_supports
-                WHERE impact_integrity != 'N';
-                """
-            )
-
-            cur.execute(
-                """
-                CREATE VIEW impact_availability AS
-                SELECT * FROM biens_supports
-                WHERE impact_availability != 'N';
-                """
-            )
-
-            conn.commit()
-            print("✅ Vues SQL mises à jour.")
-
-        except Exception as e:
-            print(f"Erreur lors de la mise à jour des vues SQL : {e}")
+        conn.commit() # calcul et de la mise à jour des scores environnementaux
 
 # Procédure 5 - Famille de fonctions concernant la génération des représentations des risques
-    def boite(boite_path):
+    def boite(self, boite_path):
         cur.execute("SELECT DISTINCT bs_id FROM biens_supports;")
         bs = cur.fetchall()
         liste_dia = ["confidentiality", "integrity", "availability"]
@@ -1181,18 +1354,21 @@ class RBVMTool(QMainWindow):
             os.makedirs(subfolder_ROUGE, exist_ok=True)
         self.boite(boite_path)
     def start_conversion_MOA(self):
+        print("✅ start_conversion_MOA appelé")
+        print("📊 Contenu actuel de dicoListePx :", dicoListePx)  # Vérification
         if not dicoListePx:
-            print("Données manquantes")
+            print("❌ dicoListePx est vide ou non défini !")
             return
         folder_path = filedialog.askdirectory()
         if not folder_path:
             print("No folder selected.")
             return
-        subfolder_VERT = os.path.join(folder_path, "03_VERT")
-        subfolder_ORANGE = os.path.join(folder_path, "02_ORANGE")
+        
+        # Créer les sous-dossiers pour les différentes catégories
         subfolder_ROUGE = os.path.join(folder_path, "01_ROUGE")
-        subfolder_VM_META = os.path.join(
-            folder_path, "04_Meta_représentation_des_VM")
+        subfolder_ORANGE = os.path.join(folder_path, "02_ORANGE")
+        subfolder_VERT = os.path.join(folder_path, "03_VERT")
+        subfolder_VM_META = os.path.join(folder_path, "04_Meta_représentation_des_VM")
         folder_VM_VERT = subfolder_VERT
         folder_VM_ORANGE = subfolder_ORANGE
         folder_VM_ROUGE = subfolder_ROUGE
@@ -1229,7 +1405,7 @@ class RBVMTool(QMainWindow):
         security_layout = QHBoxLayout()
         self.security_input = QLineEdit(self)
         security_browse = QPushButton("Téléverser", self)
-        security_browse.clicked.connect(self.browse_security)
+        security_browse.clicked.connect(self.master_function_charger_VM)
         security_layout.addWidget(self.security_input)
         security_layout.addWidget(security_browse)
         security_group.setLayout(security_layout)
@@ -1241,7 +1417,7 @@ class RBVMTool(QMainWindow):
         matrix_layout = QHBoxLayout()
         self.matrix_input = QLineEdit(self)
         matrix_browse = QPushButton("Téléverser", self)
-        matrix_browse.clicked.connect(self.browse_matrix)
+        matrix_browse.clicked.connect(self.process_matrix_data)
         matrix_layout.addWidget(self.matrix_input)
         matrix_layout.addWidget(matrix_browse)
         matrix_group.setLayout(matrix_layout)
@@ -1401,92 +1577,24 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     fenetre = RBVMTool()
     fenetre.show()
+    root = Tk()
+    root.withdraw()
 
     ## ==== prérequis BDD du programme ==== ##
     conn = sqlite3.connect("rbvm.db")  # Connexion à la base de données SQLite chiffrée avec SQLCipher
     conn.execute(f'PRAGMA passphrase = "{fenetre.passphrase}";')  # Appliquer la clé PRAGMA chiffrée à la connexion SQLite
     conn.execute("PRAGMA foreign_passphrase = ON;")  # Appliquer la clé PRAGMA chiffrée à la connexion SQLite
     cur = conn.cursor()  # Création du curseur
+
+
+
     sys.exit(app.exec_())  #  Lancement de l'application
 
 
 
-# Création des tables
-cur.execute(
-    """
-      CREATE TABLE IF NOT EXISTS valeurs_metiers(
-        name TEXT PRIMARY KEY,
-        C REAL,
-        I REAL,
-        A REAL      
-      );
-"""
-)  # Création de la table valeurs_metiers avec contraintes d'unicité sur les propriétés C (confidentialité), I (intégrité) et A (disponibilité)
-cur.execute(
-    """
-    CREATE TABLE IF NOT EXISTS biens_supports(
-        bs_id TEXT NOT NULL, 
-        cve_id TEXT,
-        bom_ref TEXT,
-        composant_ref TEXT,
-        severity TEXT,
-        score_cvss REAL,
-        attack_vector REAL,
-        attack_complexity REAL,
-        privileges_required REAL,
-        user_interaction REAL,
-        scope TEXT,
-        impact_confidentiality TEXT,
-        impact_integrity TEXT,
-        impact_availability TEXT,
-        exp_score REAL,
-        env_score REAL,
-        KEV TEXT,
-        C_heritage REAL,
-        I_heritage REAL,
-        A_heritage REAL,
-        PRIMARY KEY (bs_id, cve_id)
-    );
-"""
-)  # Création de la table biens_supports
-cur.execute(
-    """
-    CREATE TABLE IF NOT EXISTS jointure(
-    num    INTEGER PRIMARY KEY AUTOINCREMENT,
-    bs_id  TEXT NOT NULL,
-    vm_id  TEXT,
-    FOREIGN KEY (vm_id) REFERENCES valeurs_metiers(name)
-);
-"""
-)  # Création de la table jointure permettant d'associer toute valeur métier à tout bien support (n;n)
 
-##### VARIABLES GLOBALES #####
-attack_vector = None
-attack_complexity = None
-privileges_required = None
-user_interaction = None
-scope = None
-confidentiality = None
-integrity = None
-availability = None
-authentification = None
-exp_score = None
-env_score = None
-kev = None
-folder_BS_VERT = None
-folder_BS_ORANGE = None
-folder_BS_ROUGE = None
-folder_VM_VERT = None
-folder_VM_ORANGE = None
-folder_VM_ROUGE = None
-folder_VM_META = None
 
-# Dictionnaire permettant de stocker les biens supports ainsi que leurs valeurs P1, P2, P3, P4, P5,
-dicoListePx = {}
-dicoC = {"p5": [], "p4": [], "p3": [], "p2": [], "p1": []}
-dicoI = {"p5": [], "p4": [], "p3": [], "p2": [], "p1": []}
-dicoA = {"p5": [], "p4": [], "p3": [], "p2": [], "p1": []}
-dicoGlobal = {"confidentiality": dicoC, "integrity": dicoI, "availability": dicoA}
+
 
 ##### CLASSES  #####
 class CVE:
@@ -1540,7 +1648,6 @@ class CVE_others:
 
 
 ##### FONCTIONS #####
-
 
 # Famille de fonctions pour parser les variables environnementales à partir du VDR (CVSS X)
 def var_environnementales_CVSSv3(svector):
@@ -1859,9 +1966,6 @@ def convert_cia_to_numeric(value):
     elif value == "H":
         return 0.56  # High
     return 0  # Fonctions de conversion des valeurs d'impact CIA en valeurs numériques
-
-
-
 def definitionPx(p2, p3, p4, p5, scoreEnv, scoreExp):
     if 9.0 <= scoreEnv <= 10.0:
         p2.append(scoreExp)
@@ -1881,8 +1985,3 @@ def definitionPx(p2, p3, p4, p5, scoreEnv, scoreExp):
         p5,
     )  # Fonction permettant de trier dans la P(x) associée aux scores d'exploitabilité si NON KEV
 
-
-
-if __name__ == "__main__":
-    root = Tk()
-    root.withdraw()
