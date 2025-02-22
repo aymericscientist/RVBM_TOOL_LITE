@@ -79,6 +79,19 @@ dicoI = {"p5": [], "p4": [], "p3": [], "p2": [], "p1": []}
 dicoA = {"p5": [], "p4": [], "p3": [], "p2": [], "p1": []}
 dicoGlobal = {"confidentiality": dicoC, "integrity": dicoI, "availability": dicoA}
 
+
+# Dictionnaire de conversion CVSS 3.1 (lettre -> valeur numérique)
+CVSS_NUMERIC_VALUES = {
+    "AV": {"N": 0.85, "A": 0.62, "L": 0.55, "P": 0.2},
+    "AC": {"L": 0.77, "H": 0.44},
+    "PR": {"N": 0.85, "L": 0.62, "H": 0.27},
+    "UI": {"N": 0.85, "R": 0.62},
+    "S": {"U": 0, "C": 1},
+    "C": {"H": 0.56, "L": 0.22, "N": 0},
+    "I": {"H": 0.56, "L": 0.22, "N": 0},
+    "A": {"H": 0.56, "L": 0.22, "N": 0}
+}
+
 ## ==== PARTIE N°1 Définition de l'IHM ==== ##
 
 class RBVMTool(QMainWindow):
@@ -267,7 +280,7 @@ class RBVMTool(QMainWindow):
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS biens_supports(
-                    bs_id TEXT NOT NULL, 
+                    bs_id TEXT, 
                     cve_id TEXT,
                     bom_ref TEXT,
                     composant_ref TEXT,
@@ -321,183 +334,8 @@ class RBVMTool(QMainWindow):
 
         except Exception as e:
             print(f"❌ Erreur lors du traitement du fichier : {e}") # Sélectionne et charge les besoins de sécurité des valeurs métiers (DIC) depuis un fichier Excel
-    
-# Procédure 2 - Famille de fonctions
-    def parse_excel():
-        file_path = self.matrix_input.text().strip() # récupère le fichier téléverser à l'étape 2
-        if not file_path:
-            print("Aucun fichier téléversé à l'étape 2")
-            return
 
-        wb = openpyxl.load_workbook(file_path)
-        feuille = wb.active
-        vm_names = [feuille.cell(row=1, column=col).value for col in range(2, feuille.max_column + 1)] # Récupération des noms de valeurs métier (VM) à partir de la première ligne (hors colonne A)
-        bs_names = [feuille.cell(row=row, column=1).value for row in range(2, feuille.max_row + 1)] # Récupération des noms des biens supports (BS) à partir de la colonne A (hors ligne 1)
-        results = {}
-
-        # Parcourir la matrice pour récupérer les associations (biens supports - valeurs métier)
-        for col_idx, vm_name in enumerate(vm_names, start=2):  # Colonnes B à la dernière
-            if not vm_name:
-                continue
-        
-            for row_idx, bs_name in enumerate(bs_names, start=2):  # Lignes 2 à la dernière
-                cell_value = feuille.cell(row=row_idx, column=col_idx).value
-            
-                if cell_value and str(cell_value).strip().lower() == "oui":
-                    if vm_name not in results:
-                        results[vm_name] = []
-                    results[vm_name].append(bs_name)
-
-        print("✅ Matrice BS-VM traitée avec succès :", results)  # Vérification en console
-        
-        # Étape 3 : Insertion des données dans la base de données
-        conn = sqlite3.connect("rbvm.db")
-        cur = conn.cursor()
-
-        for vm_id, bs_ids in results.items():  # Insérer les relations dans la table jointure
-            for bs_id in bs_ids:
-                cur.execute(
-                    """
-                    INSERT INTO jointure (bs_id, vm_id)
-                    VALUES (?, ?);
-                """,
-                    (bs_id, vm_id),
-                )
-        conn.commit()
-        return results    
-    def update_micro_heritage():
-        cur.execute(
-            """
-            UPDATE biens_supports
-            SET 
-                C_heritage = (
-                    SELECT MAX(vm.C)
-                    FROM jointure j
-                    JOIN valeurs_metiers vm ON j.vm_id = vm.name
-                    WHERE j.bs_id = biens_supports.bs_id
-                ),
-                I_heritage = (
-                    SELECT MAX(vm.I)
-                    FROM jointure j
-                    JOIN valeurs_metiers vm ON j.vm_id = vm.name
-                    WHERE j.bs_id = biens_supports.bs_id
-                ),
-                A_heritage = (
-                    SELECT MAX(vm.A)
-                    FROM jointure j
-                    JOIN valeurs_metiers vm ON j.vm_id = vm.name
-                    WHERE j.bs_id = biens_supports.bs_id
-                );
-        """)
-        conn.commit() # Mettre à jour les valeurs C (confidentialité), I (intégrité) et A (disponibilité) dans biens_supports en fonction de la valeur métier associée, si plusieurs associations alors Max       
-
-    def process_matrix_data(self):
-        # Étape 1 : Sélection du fichier via l'interface
-        self.browse_matrix()
-    
-        # Vérifier si un fichier a bien été sélectionné
-        file_path = self.matrix_input.text().strip()
-        if not file_path:
-            print("❌ Aucun fichier téléversé à l'étape 2.")
-            return
-
-        # Étape 2 : Extraction des données de la matrice
-        wb = openpyxl.load_workbook(file_path)
-        feuille = wb.active
-        vm_names = [feuille.cell(row=1, column=col).value for col in range(2, feuille.max_column + 1)] # Récupération des noms des valeurs métiers (VM) à partir de la première ligne (hors colonne A)
-        bs_names = [feuille.cell(row=row, column=1).value for row in range(2, feuille.max_row + 1)] # Récupération des noms des biens supports (BS) à partir de la colonne A (hors ligne 1)
-        results = {}
-
-        # Analyse de la matrice BS-VM
-        for col_idx, vm_name in enumerate(vm_names, start=2):  # Colonnes B à la dernière
-            if not vm_name:
-                continue
-
-            for row_idx, bs_name in enumerate(bs_names, start=2):  # Lignes 2 à la dernière
-                cell_value = feuille.cell(row=row_idx, column=col_idx).value
-
-                if cell_value and str(cell_value).strip().lower() == "oui":
-                    if vm_name not in results:
-                        results[vm_name] = []
-                    results[vm_name].append(bs_name)
-
-        print("✅ Matrice BS-VM traitée avec succès :", results)  # Vérification en console
-
-        # Étape 3 : Insertion des données dans la base de données
-        conn = sqlite3.connect("rbvm.db")
-        cur = conn.cursor()
-    
-        for vm_id, bs_ids in results.items():  # Insérer les relations dans la table `jointure`
-            for bs_id in bs_ids:
-                cur.execute(
-                    """
-                    INSERT INTO jointure (bs_id, vm_id)
-                    VALUES (?, ?);
-                    """,
-                    (bs_id, vm_id),
-                )
-        conn.commit()
-    
-        print("✅ Relations BS-VM enregistrées avec succès.")
-
-        # Étape 4 : Mise à jour des valeurs héritées C, I, A
-        cur.execute(
-            """
-            UPDATE biens_supports
-            SET 
-                C_heritage = (
-                    SELECT MAX(vm.C)
-                    FROM jointure j
-                    JOIN valeurs_metiers vm ON j.vm_id = vm.name
-                    WHERE j.bs_id = biens_supports.bs_id
-                ),
-                I_heritage = (
-                    SELECT MAX(vm.I)
-                    FROM jointure j
-                    JOIN valeurs_metiers vm ON j.vm_id = vm.name
-                    WHERE j.bs_id = biens_supports.bs_id
-                ),
-                A_heritage = (
-                    SELECT MAX(vm.A)
-                    FROM jointure j
-                    JOIN valeurs_metiers vm ON j.vm_id = vm.name
-                    WHERE j.bs_id = biens_supports.bs_id
-                );
-            """
-        )
-        conn.commit()
-
-        print("✅ Mise à jour des valeurs héritées C, I, A terminée.")
-
-
-# Procédure 3 - passe directement à la procédure n04
-
-# Procédure 4 -  Famille de fonctions concernant la récupération et le traitement VDR + KEV
-    def browse_vdr(self):
-        """Ouvre une boîte de dialogue pour sélectionner des fichiers VDR et les charge."""
-        try:
-            file_paths, _ = QFileDialog.getOpenFileNames(
-                self,
-                "Sélectionner un ou plusieurs VDR",
-                "",
-                "JSON Files (*.json);;All Files (*)",
-            )
-
-            if not file_paths:
-                return  # Aucune sélection, on ne fait rien
-
-            self.vdr_data_list = []  # Réinitialiser la liste
-
-            for file_path in file_paths:
-                with open(file_path, "r", encoding="utf-8") as file:
-                    data = json.load(file)
-                    self.vdr_data_list.append(data)
-
-            # Met à jour le champ texte avec les fichiers sélectionnés
-            self.vdr_input.setText(", ".join(file_paths))
-
-        except Exception as e:
-            QMessageBox.critical(self, "Erreur", f"Erreur lors du chargement des fichiers VDR : {e}")
+# Procédure 2 - Famille de fonctions pour le KEV
     def browse_kev(self):
         #"""Ouvre une boîte de dialogue pour sélectionner un fichier KEV local ou le télécharger."""
         self.automatic_download.setChecked(False)
@@ -558,122 +396,261 @@ class RBVMTool(QMainWindow):
             print("✅ Données KEV chargées avec succès !")
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Erreur lors du chargement du fichier KEV : {e}")
+    
+# Procédure 3 - Famille de fonctions concernant la récupération et le traitement VDR + KEV
+
     def master_function_charger_VDR(self):
+        """Sélectionne, charge et traite les fichiers VDR. Met à jour la base de données et les vues SQL."""
+        print("📂 Bouton Téléverser cliqué, ouverture du sélecteur de fichiers...")
+
         try:
-            self.browse_vdr()  # Étape 1 : Sélection des fichiers VDR
+            # 🔹 Étape 1 : Sélection des fichiers VDR via boîte de dialogue
+            file_paths, _ = QFileDialog.getOpenFileNames(
+                self, "Sélectionner un ou plusieurs VDR", "", "JSON Files (*.json);;All Files (*)"
+            )
+            print(f"📂 Fichiers sélectionnés : {file_paths}")
 
-            if not self.vdr_data_list:
+            if not file_paths:
                 QMessageBox.warning(self, "Avertissement", "Aucun fichier VDR sélectionné.")
-                return  # Arrêt si aucun fichier n'est chargé
+                return  
 
-            # Vérifier la méthode choisie pour le KEV
-            if self.automatic_download.isChecked():
-                self.download_kev()  # Télécharge le KEV
-                return  # Attendre avant de continuer
-            elif self.local_file_option.isChecked():
-                kev_file_path = self.kev_input.text().strip()
-                if kev_file_path:
-                    self.load_kev_data(kev_file_path)  # Charger le fichier KEV sélectionné
-                else:
-                    QMessageBox.warning(self, "Avertissement", "Aucun fichier KEV sélectionné.")
-                    return  # Arrêt si aucun fichier KEV n'est fourni
-            else:
-                QMessageBox.warning(self, "Avertissement", "Veuillez sélectionner une méthode pour obtenir le fichier KEV.")
-                return
+            self.vdr_data_list = []
 
+            for file_path in file_paths:
+                with open(file_path, "r", encoding="utf-8") as file:
+                    data = json.load(file)
+                    self.vdr_data_list.append(data)
+
+            print(f"📄 {len(self.vdr_data_list)} fichier(s) VDR chargé(s) dans vdr_data_list")
+
+            # 🔹 Vérification de la méthode KEV
             if not self.kev_data:
                 QMessageBox.warning(self, "Avertissement", "Le fichier KEV n'a pas pu être chargé.")
-                return  # Arrêt si aucun KEV n'est chargé
+                return
 
-            # Traitement des fichiers VDR
+            # 🔹 Étape 2 : Connexion à la base de données
+            conn = sqlite3.connect("rbvm.db")
+            cur = conn.cursor()
+            print(f"📂 Connexion à la base de données établie.")
+
+            # 🔹 Étape 3 : Traitement des fichiers VDR
+            print(f"🔄 Début du traitement des VDR ({len(self.vdr_data_list)} fichiers)")
+
             for vdr_data in self.vdr_data_list:
                 bs_id = vdr_data.get("metadata", {}).get("component", {}).get("name")
                 serialNumber = vdr_data.get("serialNumber")
 
+                # 🔍 Vérifier si le bs_id est bien extrait
+                print(f"🔍 bs_id extrait du VDR : {bs_id}, SerialNumber : {serialNumber}")
+
                 if not bs_id or not serialNumber:
                     print("⚠ VDR invalide, absence de `bs_id` ou `serialNumber`.")
-                    continue  # Ignore ce fichier VDR
+                    continue
 
-                self.parsing(vdr_data, self.kev_data)
+                # 🔹 Extraction et insertion des vulnérabilités (CVE)
+                list_vulnerabilities = vdr_data.get("vulnerabilities", [])
 
-            # Mise à jour des vues SQL
-            self.update_sql_views()
+                for vulnerability in list_vulnerabilities:
+                    cve_id = vulnerability.get("id")
+                    if not cve_id or "GHSA" in cve_id:
+                        continue
+
+                    # Récupération des valeurs essentielles
+                    score_CVSS = vulnerability.get("ratings", [{}])[0].get("score")
+                    severity = vulnerability.get("ratings", [{}])[0].get("severity")
+                    method = vulnerability.get("ratings", [{}])[0].get("method")
+
+                    if not score_CVSS or "CVSSv2" in method:
+                        continue
+
+                    # Vérification si c'est une CVE connue exploitée (KEV)
+                    kev = "YES" if cve_id in self.kev_data else "NO"
+
+                    # 🔹 Parsing du vecteur CVSS
+                    vector = vulnerability.get("ratings", [{}])[0].get("vector", "")
+                    vector_dict = {key: value for key, value in (item.split(":") for item in vector.replace("CVSS:3.0/", "").split("/")) if key in CVSS_NUMERIC_VALUES}
+
+                    # 🔹 Conversion des valeurs CVSS en numérique
+                    attack_vector = CVSS_NUMERIC_VALUES["AV"].get(vector_dict.get("AV", "N"), None)
+                    attack_complexity = CVSS_NUMERIC_VALUES["AC"].get(vector_dict.get("AC", "L"), None)
+                    privileges_required = CVSS_NUMERIC_VALUES["PR"].get(vector_dict.get("PR", "N"), None)
+                    user_interaction = CVSS_NUMERIC_VALUES["UI"].get(vector_dict.get("UI", "N"), None)
+                    scope = CVSS_NUMERIC_VALUES["S"].get(vector_dict.get("S", "U"), None)
+                    impact_confidentiality = CVSS_NUMERIC_VALUES["C"].get(vector_dict.get("C", "N"), None)
+                    impact_integrity = CVSS_NUMERIC_VALUES["I"].get(vector_dict.get("I", "N"), None)
+                    impact_availability = CVSS_NUMERIC_VALUES["A"].get(vector_dict.get("A", "N"), None)
+
+                    # 🔹 Ajout dans la base de données
+                    try:
+                        cur.execute(
+                            """
+                            INSERT INTO biens_supports(
+                                bs_id, cve_id, severity, score_cvss, KEV,
+                                attack_vector, attack_complexity, privileges_required,
+                                user_interaction, scope, impact_confidentiality,
+                                impact_integrity, impact_availability
+                            )
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT (bs_id, cve_id) DO NOTHING;
+                            """,
+                            (
+                                bs_id, cve_id, severity, score_CVSS, kev,
+                                attack_vector, attack_complexity, privileges_required,
+                                user_interaction, scope, impact_confidentiality,
+                                impact_integrity, impact_availability
+                            ),
+                        )
+                        conn.commit()
+                        print(f"✅ CVE {cve_id} insérée pour {bs_id}")
+
+                    except sqlite3.Error as e:
+                        print(f"❌ Erreur SQLite lors de l'insertion de la CVE {cve_id} : {e}")
+
+            print("✅ Mise à jour des biens supports avec les données des VDR.")
 
         except Exception as e:
-            QMessageBox.critical(self, "Erreur", f"Une erreur s'est produite : {e}") # Charge les fichiers VDR, les analyse et met à jour la base de données
-    def parsing(self, vdr_data, kev_data):
-        """Analyse les fichiers VDR et met à jour la base de données."""
-        try:
-            list_vulnerabilities = vdr_data.get("vulnerabilities", [])
+            QMessageBox.critical(self, "Erreur", f"Une erreur s'est produite : {e}")
 
-            for vulnerability in list_vulnerabilities:
-                cve_id = vulnerability.get("id")
-                if not cve_id or "GHSA" in cve_id:
-                    continue
+    def parse_cvss_vector(self, vector_string):
+        """Parse la chaîne vectorielle CVSS et extrait les métriques."""
+        mapping = {
+            "AV": {"N": 0.85, "A": 0.62, "L": 0.55, "P": 0.2},
+            "AC": {"L": 0.77, "H": 0.44},
+            "PR": {"N": 0.85, "L": 0.62, "H": 0.27},
+            "UI": {"N": 0.85, "R": 0.62},
+            "S": {"U": 0, "C": 1},
+            "C": {"N": 0, "L": 0.22, "H": 0.56},
+            "I": {"N": 0, "L": 0.22, "H": 0.56},
+            "A": {"N": 0, "L": 0.22, "H": 0.56},
+        }
 
-                # Récupération des valeurs essentielles
-                score_CVSS = vulnerability.get("ratings", [{}])[0].get("score")
-                severity = vulnerability.get("ratings", [{}])[0].get("severity")
-                method = vulnerability.get("ratings", [{}])[0].get("method")
+        default_values = {metric: "N/A" for metric in mapping.keys()}
 
-                if not score_CVSS or "CVSSv2" in method:
-                    continue
+        if "CVSS" in vector_string:
+            parts = vector_string.split("/")
+            for part in parts:
+                key_value = part.split(":")
+                if len(key_value) == 2 and key_value[0] in mapping:
+                    default_values[key_value[0]] = mapping[key_value[0]].get(key_value[1], "N/A")
 
-                # Vérification si c'est une CVE connue exploitée (KEV)
-                kev = "YES" if cve_id in kev_data else "NO"
+        return default_values
+   
 
-                # Ajout dans la base de données
+
+# Procédure 4 -  Association valeur métier / bien support
+    def update_micro_heritage():
+        cur.execute(
+            """
+            UPDATE biens_supports
+            SET 
+                C_heritage = (
+                    SELECT MAX(vm.C)
+                    FROM jointure j
+                    JOIN valeurs_metiers vm ON j.vm_id = vm.name
+                    WHERE j.bs_id = biens_supports.bs_id
+                ),
+                I_heritage = (
+                    SELECT MAX(vm.I)
+                    FROM jointure j
+                    JOIN valeurs_metiers vm ON j.vm_id = vm.name
+                    WHERE j.bs_id = biens_supports.bs_id
+                ),
+                A_heritage = (
+                    SELECT MAX(vm.A)
+                    FROM jointure j
+                    JOIN valeurs_metiers vm ON j.vm_id = vm.name
+                    WHERE j.bs_id = biens_supports.bs_id
+                );
+        """)
+        conn.commit() # Mettre à jour les valeurs C (confidentialité), I (intégrité) et A (disponibilité) dans biens_supports en fonction de la valeur métier associée, si plusieurs associations alors Max       
+    def process_matrix_data(self):
+        # Étape 1 : Sélection du fichier via l'interface
+        self.browse_matrix()
+    
+        # Vérifier si un fichier a bien été sélectionné
+        file_path = self.matrix_input.text().strip()
+        if not file_path:
+            print("❌ Aucun fichier téléversé à l'étape 2.")
+            return
+
+        # Étape 2 : Extraction des données de la matrice
+        wb = openpyxl.load_workbook(file_path)
+        feuille = wb.active
+        vm_names = [feuille.cell(row=1, column=col).value for col in range(2, feuille.max_column + 1)] # Récupération des noms des valeurs métiers (VM) à partir de la première ligne (hors colonne A)
+        bs_names = [feuille.cell(row=row, column=1).value for row in range(2, feuille.max_row + 1)] # Récupération des noms des biens supports (BS) à partir de la colonne A (hors ligne 1)
+        results = {}
+
+        # Analyse de la matrice BS-VM
+        for col_idx, vm_name in enumerate(vm_names, start=2):  # Colonnes B à la dernière
+            if not vm_name:
+                continue
+
+            for row_idx, bs_name in enumerate(bs_names, start=2):  # Lignes 2 à la dernière
+                cell_value = feuille.cell(row=row_idx, column=col_idx).value
+
+                if cell_value and str(cell_value).strip().lower() == "oui":
+                    if vm_name not in results:
+                        results[vm_name] = []
+                    results[vm_name].append(bs_name)
+
+        print("✅ Matrice BS-VM traitée avec succès :", results)  # Vérification en console
+
+        # Étape 3 : Insertion des données dans la base de données
+        conn = sqlite3.connect("rbvm.db")
+        cur = conn.cursor()
+    
+        for bs_id in bs_names: # Insérer les biens supports dans la table `biens_supports` s'ils n'existent pas déjà
+            cur.execute(
+                """
+                INSERT INTO biens_supports (bs_id)
+                VALUES (?)
+                ON CONFLICT(bs_id) DO NOTHING;
+                """,
+                (bs_id,),
+            )
+        conn.commit()
+        
+        for vm_id, bs_ids in results.items():  # Insérer les relations dans la table `jointure`
+            for bs_id in bs_ids:
                 cur.execute(
                     """
-                    INSERT INTO biens_supports(
-                        bs_id, cve_id, severity, score_cvss, KEV
-                    )
-                    VALUES (?, ?, ?, ?, ?)
-                    ON CONFLICT (bs_id, cve_id) DO NOTHING;
+                    INSERT INTO jointure (bs_id, vm_id)
+                    VALUES (?, ?);
                     """,
-                    (vdr_data.get("metadata", {}).get("component", {}).get("name"), cve_id, severity, score_CVSS, kev),
+                    (bs_id, vm_id),
                 )
+        conn.commit()
+    
+        print("✅ Relations BS-VM enregistrées avec succès.")
 
-            conn.commit()
+        # Étape 4 : Mise à jour des valeurs héritées C, I, A
+        cur.execute(
+            """
+            UPDATE biens_supports
+            SET 
+                C_heritage = (
+                    SELECT MAX(vm.C)
+                    FROM jointure j
+                    JOIN valeurs_metiers vm ON j.vm_id = vm.name
+                    WHERE j.bs_id = biens_supports.bs_id
+                ),
+                I_heritage = (
+                    SELECT MAX(vm.I)
+                    FROM jointure j
+                    JOIN valeurs_metiers vm ON j.vm_id = vm.name
+                    WHERE j.bs_id = biens_supports.bs_id
+                ),
+                A_heritage = (
+                    SELECT MAX(vm.A)
+                    FROM jointure j
+                    JOIN valeurs_metiers vm ON j.vm_id = vm.name
+                    WHERE j.bs_id = biens_supports.bs_id
+                );
+            """
+        )
+        conn.commit()
 
-        except Exception as e:
-            print(f"Erreur dans `parsing()`: {e}")
-    def update_sql_views(self):
-        """Mise à jour des vues SQL pour les impacts (Confidentialité, Intégrité, Disponibilité)."""
-        try:
-            cur.execute("DROP VIEW IF EXISTS impact_confidentiality;")
-            cur.execute("DROP VIEW IF EXISTS impact_integrity;")
-            cur.execute("DROP VIEW IF EXISTS impact_availability;")
-
-            cur.execute(
-                """
-                CREATE VIEW impact_confidentiality AS
-                SELECT * FROM biens_supports
-                WHERE impact_confidentiality != 'N';
-                """
-            )
-
-            cur.execute(
-                """
-                CREATE VIEW impact_integrity AS
-                SELECT * FROM biens_supports
-                WHERE impact_integrity != 'N';
-                """
-            )
-
-            cur.execute(
-                """
-                CREATE VIEW impact_availability AS
-                SELECT * FROM biens_supports
-                WHERE impact_availability != 'N';
-                """
-            )
-
-            conn.commit()
-            print("✅ Vues SQL mises à jour.")
-
-        except Exception as e:
-            print(f"Erreur lors de la mise à jour des vues SQL : {e}")
+        print("✅ Mise à jour des valeurs héritées C, I, A terminée.")
 
     def option_5_calcul_scores():
         # Dictionnaire pour stocker les scores par bs_id et cve_id
@@ -770,35 +747,45 @@ class RBVMTool(QMainWindow):
         conn.commit() # calcul et de la mise à jour des scores environnementaux
 
 # Procédure 5 - Famille de fonctions concernant la génération des représentations des risques
+    def generate_boxplot(entity_id, impact, p1, p2, p3, p4, p5, folder_path):
+        data = [p5, p4, p3, p2, p1]
+        labels = ["P5", "P4", "P3", "P2", "P1"]
+
+        now = datetime.now()
+        date = now.strftime("%d.%m.%Y")
+        name = f"{entity_id}-{impact}-{date}"
+
+        # Création du graphique
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.boxplot(data, vert=False, labels=labels, patch_artist=True, showfliers=False)
+        ax.set_title(f"{entity_id} - {impact.capitalize()}")
+        ax.set_xlabel("Score d'exploitabilité")
+
+        plt.savefig(f"{folder_path}/{name}.png", format="png", dpi=300)
+        plt.close(fig) # Génère et sauvegarde une boîte à moustaches pour un bien support ou une valeur métier
     def boite(self, boite_path):
         cur.execute("SELECT DISTINCT bs_id FROM biens_supports;")
         bs = cur.fetchall()
         liste_dia = ["confidentiality", "integrity", "availability"]
-        p1Vert = 0
-        p1Orange = 0
-        p1Rouge = 0
-        p2Vert = 0
-        p2Orange = 0
-        p2Rouge = 0
-        p3Vert = 0
-        p3Orange = 0
-        p4Vert = 0
-        p4Orange = 0
-        p5Vert = 0
-        for i in range(len(liste_dia)):
+
+        for impact in liste_dia:
             for b in bs:
-                p1Vert = 0
-                p1Orange = 0
-                p1Rouge = 0
-                p2Vert = 0
-                p2Orange = 0
-                p2Rouge = 0
-                p3Vert = 0
-                p3Orange = 0
-                p4Vert = 0
-                p4Orange = 0
-                p5Vert = 0
                 b = b[0]
+                cur.execute(
+                    f"""
+                    SELECT cve_id, exp_score, env_score 
+                    FROM biens_supports 
+                    WHERE bs_id = ? AND impact_{impact} != 'N';
+                """,
+                    (b,),
+                )
+                data = cur.fetchall()
+                print(f"📊 Données actuelles dans biens_supports : {data}")
+
+                p1, p2, p3, p4, p5 = [], [], [], [], []
+                kev_data = set()
+            
+                # Récupération des CVE KEV
                 cur.execute(
                     """
                     SELECT cve_id 
@@ -807,197 +794,23 @@ class RBVMTool(QMainWindow):
                 """,
                     (b,),
                 )
-
                 kev = cur.fetchall()
                 kev_data = {row[0] for row in kev}
 
-                cur.execute(
-                    f"""
-                    SELECT cve_id, exp_score, env_score 
-                    FROM biens_supports 
-                    WHERE bs_id = ? AND impact_{liste_dia[i]} != 'N';
-                """,
-                    (b,),
-                )
-                data = cur.fetchall()
-
-                p1 = []
-                p2 = []
-                p3 = []
-                p4 = []
-                p5 = []
-
-                for id, exp_score, env_score in data:
-                    if id in kev_data:
+                # Classement des scores par priorité
+                for cve_id, exp_score, env_score in data:
+                    if cve_id in kev_data:
                         p1.append(exp_score)
                     else:
                         p2, p3, p4, p5 = definitionPx(p2, p3, p4, p5, env_score, exp_score)
 
-                (
-                    p1Vert,
-                    p1Orange,
-                    p1Rouge,
-                    p2Vert,
-                    p2Orange,
-                    p2Rouge,
-                    p3Vert,
-                    p3Orange,
-                    p4Vert,
-                    p4Orange,
-                    p5Vert,
-                ) = triAffichageVOR(
-                    p1,
-                    p2,
-                    p3,
-                    p4,
-                    p5,
-                    p1Vert,
-                    p1Orange,
-                    p1Rouge,
-                    p2Vert,
-                    p2Orange,
-                    p2Rouge,
-                    p3Vert,
-                    p3Orange,
-                    p4Vert,
-                    p4Orange,
-                    p5Vert,
-                )
+                # Stockage dans `dicoListePx`
+                impact_key = f"{b}-{impact}"
+                dicoListePx[impact_key] = [p5, p4, p3, p2, p1]
 
-                data = [p5, p4, p3, p2, p1]
-                impact_key = f"{b}-{liste_dia[i]}"
-                dicoListePx[impact_key] = data
-
-                positions = [1, 2, 3, 4, 5]
-                labels = ["P5", "P4", "P3", "P2", "P1"]
-                data_filtree = [
-                    d if isinstance(d, list) and len(d) > 0 else [] for d in data
-                ]
-
-                nbVertOrangeRouge = [
-                    [(f"{p5Vert}", "green")],
-                    [(f"{p4Vert}", "green"), (f"{p4Orange}", "orange")],
-                    [(f"{p3Vert}", "green"), (f"{p3Orange}", "orange")],
-                    [
-                        (f"{p2Vert}", "green"),
-                        (f"{p2Orange}", "orange"),
-                        (f"{p2Rouge}", "red"),
-                    ],
-                    [
-                        (f"{p1Vert}", "green"),
-                        (f"{p1Orange}", "orange"),
-                        (f"{p1Rouge}", "red"),
-                    ],
-                ]
-
-                now = datetime.now()
-                date = now.strftime("%d.%m.%Y")
-
-                # Charger l'image de fond
-                im = plt.imread("fond.png")
-
-                # Créer une figure et un axe avec la taille spécifiée
-                fig, ax = plt.subplots(figsize=(10, 5))
-
-                # Ajouter l'image de fond à l'axe
-                ax.imshow(im, extent=[0, 4, 0.5, 5.5], aspect="auto", alpha=0.5, zorder=0)
-
-                # Ajouter le boxplot sur le même axe
-                ax.boxplot(
-                    data_filtree,
-                    vert=False,
-                    positions=positions,
-                    patch_artist=False,
-                    showfliers=False,
-                    zorder=1,
-                )
-                box = ax.boxplot(
-                    data_filtree,
-                    vert=False,
-                    positions=positions,
-                    patch_artist=False,
-                    showfliers=False,
-                    zorder=1,
-                )
-
-                # Ajouter quadrillage sur l'axe des abscisses
-                ax.grid(axis="x", linestyle="--", linewidth=0.5, color="gray", alpha=0.7)
-
-                # Mettre la mediane en rouge
-                for median in box["medians"]:
-                    median.set_color("red")
-                    median.set_linewidth(3)
-
-                ax.spines["right"].set_visible(False)
-                ax.spines["top"].set_visible(False)
-
-                # Ajouter les étiquettes, titre et limites
-                ax.set_title(f"{b} ({liste_dia[i]})")
-                ax.set_ylabel("Sévérité", labelpad=55)
-                ax.set_xlabel("Score d'exploitabilité")
-                ax.set_xlim(0, 4)
-                ax.set_ylim(0.5, 5.5)  # Ajusté pour correspondre à l'image de fond
-                ax.set_yticks(positions)
-                ax.set_yticklabels(labels)
-
-                for pos, nbVertOrangeRouge in zip(positions, nbVertOrangeRouge):
-                    y_pos = pos
-                    x_pos = -0.43
-                    for text, color in nbVertOrangeRouge:
-                        ax.text(
-                            x_pos,
-                            y_pos,
-                            text,
-                            ha="right",
-                            va="center",
-                            fontsize=11,
-                            color=color,
-                        )
-                        x_pos += 0.1
-
-                # Ajuster dynamiquement le labelpad après redimensionnement
-                def update_labelpad(event):
-                    """Ajuster dynamiquement le labelpad du label y."""
-                    fig_width, _ = fig.get_size_inches()
-                    ax.set_ylabel(
-                        "Sévérité", labelpad=fig_width * 5
-                    )  # Ajuste en fonction de la largeur
-
-                # Connecter l'événement de redimensionnement
-                fig.canvas.mpl_connect("resize_event", update_labelpad)
-
-                # Sauvegarder la figure
-                plt.savefig(
-                    f"{boite_path}\\{b}-{liste_dia[i]} {date}.png", format="png", dpi=300
-                )
-                if (p1Vert or p2Vert or p3Vert or p4Vert or p5Vert != 0) and (
-                    p1Orange == 0
-                    and p1Rouge == 0
-                    and p2Orange == 0
-                    and p2Rouge == 0
-                    and p3Orange == 0
-                    and p4Orange == 0
-                ):
-                    plt.savefig(
-                        f"{folder_BS_VERT}\\{b}-{liste_dia[i]} {date}.png",
-                        format="png",
-                        dpi=300,
-                    )
-                if (p1Orange or p2Orange or p3Orange or p3Orange != 0) and (
-                    p1Rouge == 0 and p2Rouge == 0
-                ):
-                    plt.savefig(
-                        f"{folder_BS_ORANGE}\\{b}-{liste_dia[i]} {date}.png",
-                        format="png",
-                        dpi=300,
-                    )
-                if p1Rouge or p2Rouge != 0:
-                    plt.savefig(
-                        f"{folder_BS_ROUGE}\\{b}-{liste_dia[i]} {date}.png",
-                        format="png",
-                        dpi=300,
-                    ) # Fonction permettant de créer les boites à moustache des biens supports
-    def boite_vm(vm_id, folder_path):
+                # Génération de la boîte à moustaches
+                self.generate_boxplot(b, impact, p1, p2, p3, p4, p5, boite_path) # Création des boîtes à moustaches pour les biens supports
+    def boite_vm(self, vm_id, folder_path):
         liste_dia = ["confidentiality", "integrity", "availability"]
         cur.execute(
             """
@@ -1007,17 +820,18 @@ class RBVMTool(QMainWindow):
         """,
             (vm_id,),
         )
-
         rows = cur.fetchall()
-        p1t = {"confidentiality": [], "integrity": [], "availability": []}
-        p2t = {"confidentiality": [], "integrity": [], "availability": []}
-        p3t = {"confidentiality": [], "integrity": [], "availability": []}
-        p4t = {"confidentiality": [], "integrity": [], "availability": []}
-        p5t = {"confidentiality": [], "integrity": [], "availability": []}
+
+        p1t, p2t, p3t, p4t, p5t = {}, {}, {}, {}, {}
+        for impact in liste_dia:
+            p1t[impact] = []
+            p2t[impact] = []
+            p3t[impact] = []
+            p4t[impact] = []
+            p5t[impact] = []
 
         for row in rows:
             bs_id = row[0]
-
             for impact in liste_dia:
                 impact_key = f"{bs_id}-{impact}"
                 if impact_key in dicoListePx:
@@ -1026,182 +840,16 @@ class RBVMTool(QMainWindow):
                     p3t[impact].extend(dicoListePx[impact_key][2])
                     p2t[impact].extend(dicoListePx[impact_key][3])
                     p1t[impact].extend(dicoListePx[impact_key][4])
-        data = {}
 
         for impact in liste_dia:
-            p1, p2, p3, p4, p5 = [], [], [], [], []
-            p5.extend(p5t[impact])
-            p4.extend(p4t[impact])
-            p3.extend(p3t[impact])
-            p2.extend(p2t[impact])
-            p1.extend(p1t[impact])
+            dicoGlobal[impact]["p5"].extend(p5t[impact])
+            dicoGlobal[impact]["p4"].extend(p4t[impact])
+            dicoGlobal[impact]["p3"].extend(p3t[impact])
+            dicoGlobal[impact]["p2"].extend(p2t[impact])
+            dicoGlobal[impact]["p1"].extend(p1t[impact])
 
-            data[impact] = [p5, p4, p3, p2, p1]
-
-        for impact in liste_dia:
-            p1 = data[impact][4]
-            p2 = data[impact][3]
-            p3 = data[impact][2]
-            p4 = data[impact][1]
-            p5 = data[impact][0]
-
-            if impact == "confidentiality":
-                dicoC["p5"].extend(p5)
-                dicoC["p4"].extend(p4)
-                dicoC["p3"].extend(p3)
-                dicoC["p2"].extend(p2)
-                dicoC["p1"].extend(p1)
-            elif impact == "integrity":
-                dicoI["p5"].extend(p5)
-                dicoI["p4"].extend(p4)
-                dicoI["p3"].extend(p3)
-                dicoI["p2"].extend(p2)
-                dicoI["p1"].extend(p1)
-            elif impact == "availability":
-                dicoA["p5"].extend(p5)
-                dicoA["p4"].extend(p4)
-                dicoA["p3"].extend(p3)
-                dicoA["p2"].extend(p2)
-                dicoA["p1"].extend(p1)
-
-            p1Vert = 0
-            p1Orange = 0
-            p1Rouge = 0
-            p2Vert = 0
-            p2Orange = 0
-            p2Rouge = 0
-            p3Vert = 0
-            p3Orange = 0
-            p4Vert = 0
-            p4Orange = 0
-            p5Vert = 0
-
-            (
-                p1Vert,
-                p1Orange,
-                p1Rouge,
-                p2Vert,
-                p2Orange,
-                p2Rouge,
-                p3Vert,
-                p3Orange,
-                p4Vert,
-                p4Orange,
-                p5Vert,
-            ) = triAffichageVOR(
-                p1,
-                p2,
-                p3,
-                p4,
-                p5,
-                p1Vert,
-                p1Orange,
-                p1Rouge,
-                p2Vert,
-                p2Orange,
-                p2Rouge,
-                p3Vert,
-                p3Orange,
-                p4Vert,
-                p4Orange,
-                p5Vert,
-            )
-
-            positions = [1, 2, 3, 4, 5]
-            labels = ["P5", "P4", "P3", "P2", "P1"]
-            data_filtree = [d if len(d) > 0 else [] for d in data[impact]]
-
-            nbVertOrangeRouge = [
-                [(f"{p5Vert}", "green")],
-                [(f"{p4Vert}", "green"), (f"{p4Orange}", "orange")],
-                [(f"{p3Vert}", "green"), (f"{p3Orange}", "orange")],
-                [(f"{p2Vert}", "green"), (f"{p2Orange}", "orange"), (f"{p2Rouge}", "red")],
-                [(f"{p1Vert}", "green"), (f"{p1Orange}", "orange"), (f"{p1Rouge}", "red")],
-            ]
-
-            now = datetime.now()
-            date = now.strftime("%d.%m.%Y")
-            im = plt.imread("fond.png")
-            fig, ax = plt.subplots(figsize=(10, 5))
-            ax.imshow(im, extent=[0, 4, 0.5, 5.5], aspect="auto", alpha=0.5, zorder=0)
-
-            ax.boxplot(
-                data_filtree,
-                vert=False,
-                positions=positions,
-                patch_artist=False,
-                showfliers=False,
-                zorder=1,
-            )
-            box = ax.boxplot(
-                data_filtree,
-                vert=False,
-                positions=positions,
-                patch_artist=False,
-                showfliers=False,
-                zorder=1,
-            )
-
-            ax.grid(axis="x", linestyle="--", linewidth=0.5, color="gray", alpha=0.7)
-
-            for median in box["medians"]:
-                median.set_color("red")
-                median.set_linewidth(3)
-
-            ax.spines["right"].set_visible(False)
-            ax.spines["top"].set_visible(False)
-            ax.set_title(f"{vm_id} - {impact.capitalize()}")
-            ax.set_ylabel("Sévérité", labelpad=55)
-            ax.set_xlabel("Score d'exploitabilité")
-            ax.set_xlim(0, 4.1)
-            ax.set_ylim(0.5, 5.5)
-            ax.set_yticks(positions)
-            ax.set_yticklabels(labels)
-            name = f"{vm_id}-{impact}-{date}"
-
-            for pos, nbVertOrangeRouge in zip(positions, nbVertOrangeRouge):
-                y_pos = pos
-                x_pos = -0.43
-                for text, color in nbVertOrangeRouge:
-                    ax.text(
-                        x_pos,
-                        y_pos,
-                        text,
-                        ha="right",
-                        va="center",
-                        fontsize=11,
-                        color=color,
-                    )
-                    x_pos += 0.1
-
-            # Ajuster dynamiquement le labelpad après redimensionnement
-            def update_labelpad(event):
-                """Ajuster dynamiquement le labelpad du label y."""
-                fig_width, _ = fig.get_size_inches()
-                ax.set_ylabel(
-                    "Sévérité", labelpad=fig_width * 5
-                )  # Ajuste en fonction de la largeur
-
-            # Connecter l'événement de redimensionnement
-            fig.canvas.mpl_connect("resize_event", update_labelpad)
-            plt.savefig(f"{folder_path}\\{name}.png", format="png", dpi=300)
-            if (p1Vert or p2Vert or p3Vert or p4Vert or p5Vert != 0) and (
-                p1Orange == 0
-                and p1Rouge == 0
-                and p2Orange == 0
-                and p2Rouge == 0
-                and p3Orange == 0
-                and p4Orange == 0
-            ):
-                plt.savefig(f"{folder_VM_VERT}\\{name}.png", format="png", dpi=300)
-            if (p1Orange or p2Orange or p3Orange or p3Orange != 0) and (
-                p1Rouge == 0 and p2Rouge == 0
-            ):
-                plt.savefig(f"{folder_VM_ORANGE}\\{name}.png", format="png", dpi=300)
-            if p1Rouge or p2Rouge != 0:
-                plt.savefig(f"{folder_VM_ROUGE}\\{name}.png", format="png", dpi=300)
-            plt.close(fig) # Fonction permettant de créer les boites à moustache des valeurs métiers
-    def boite_vm_globale(folder_path):
+            self.generate_boxplot(vm_id, impact, p1t[impact], p2t[impact], p3t[impact], p4t[impact], p5t[impact], folder_path) # Création des boîtes à moustaches pour les valeurs métiers
+    def boite_vm_globale(self, folder_path):
         liste_dia = ["confidentiality", "integrity", "availability"]
 
         for impact in liste_dia:
@@ -1211,135 +859,44 @@ class RBVMTool(QMainWindow):
             p4 = dicoGlobal[impact]["p4"]
             p5 = dicoGlobal[impact]["p5"]
 
-            p1Vert = 0
-            p1Orange = 0
-            p1Rouge = 0
-            p2Vert = 0
-            p2Orange = 0
-            p2Rouge = 0
-            p3Vert = 0
-            p3Orange = 0
-            p4Vert = 0
-            p4Orange = 0
-            p5Vert = 0
+            self.generate_boxplot("Meta_VM", impact, p1, p2, p3, p4, p5, folder_VM_META) # Création des boîtes à moustaches pour la représentation globale des valeurs métiers
 
-            (
-                p1Vert,
-                p1Orange,
-                p1Rouge,
-                p2Vert,
-                p2Orange,
-                p2Rouge,
-                p3Vert,
-                p3Orange,
-                p4Vert,
-                p4Orange,
-                p5Vert,
-            ) = triAffichageVOR(
-                p1,
-                p2,
-                p3,
-                p4,
-                p5,
-                p1Vert,
-                p1Orange,
-                p1Rouge,
-                p2Vert,
-                p2Orange,
-                p2Rouge,
-                p3Vert,
-                p3Orange,
-                p4Vert,
-                p4Orange,
-                p5Vert,
-            )
 
-            data = [p5, p4, p3, p2, p1]
-
-            positions = [1, 2, 3, 4, 5]
-            labels = ["P5", "P4", "P3", "P2", "P1"]
-            data_filtree = [d if len(d) > 0 else [] for d in data]
-            nbVertOrangeRouge = [
-                [(f"{p5Vert}", "green")],
-                [(f"{p4Vert}", "green"), (f"{p4Orange}", "orange")],
-                [(f"{p3Vert}", "green"), (f"{p3Orange}", "orange")],
-                [(f"{p2Vert}", "green"), (f"{p2Orange}", "orange"), (f"{p2Rouge}", "red")],
-                [(f"{p1Vert}", "green"), (f"{p1Orange}", "orange"), (f"{p1Rouge}", "red")],
-            ]
-
-            now = datetime.now()
-            date = now.strftime("%d.%m.%Y")
-            im = plt.imread("fond.png")
-            fig, ax = plt.subplots(figsize=(10, 5))
-            ax.imshow(im, extent=[0, 4, 0.5, 5.5], aspect="auto", alpha=0.5, zorder=0)
-
-            ax.boxplot(
-                data_filtree,
-                vert=False,
-                positions=positions,
-                patch_artist=False,
-                showfliers=False,
-                zorder=1,
-            )
-            box = ax.boxplot(
-                data_filtree,
-                vert=False,
-                positions=positions,
-                patch_artist=False,
-                showfliers=False,
-                zorder=1,
-            )
-
-            ax.grid(axis="x", linestyle="--", linewidth=0.5, color="gray", alpha=0.7)
-
-            for median in box["medians"]:
-                median.set_color("red")
-                median.set_linewidth(3)
-
-            ax.spines["right"].set_visible(False)
-            ax.spines["top"].set_visible(False)
-            ax.set_title(f"Meta representation VM - {impact.capitalize()}")
-            ax.set_ylabel("Sévérité", labelpad=55)
-            ax.set_xlabel("Score d'exploitabilité")
-            ax.set_xlim(0, 4.1)
-            ax.set_ylim(0.5, 5.5)
-            ax.set_yticks(positions)
-            ax.set_yticklabels(labels)
-            name = f"Meta representation VM-{impact}-{date}"
-
-            for pos, nbVertOrangeRouge in zip(positions, nbVertOrangeRouge):
-                y_pos = pos
-                x_pos = -0.43
-                for text, color in nbVertOrangeRouge:
-                    ax.text(
-                        x_pos,
-                        y_pos,
-                        text,
-                        ha="right",
-                        va="center",
-                        fontsize=11,
-                        color=color,
-                    )
-                    x_pos += 0.1
-
-            # Ajuster dynamiquement le labelpad après redimensionnement
-            def update_labelpad(event):
-                """Ajuster dynamiquement le labelpad du label y."""
-                fig_width, _ = fig.get_size_inches()
-                ax.set_ylabel(
-                    "Sévérité", labelpad=fig_width * 5
-                )  # Ajuste en fonction de la largeur
-
-            # Connecter l'événement de redimensionnement
-            fig.canvas.mpl_connect("resize_event", update_labelpad)
-            plt.savefig(f"{folder_VM_META}\\{name}.png", format="png", dpi=300)
-            plt.close(fig) # Fonction permettant de créer les boites à moustache méta des valeurs métiers
     def start_conversion_MOE(self):
-        print("Affichage boîte à moustache")
+        print("Début de la génération des représentations MOE")
         boite_path = filedialog.askdirectory()
         if not boite_path:
             print("No folder selected.")
             return
+        
+        print("📊 Vérification du contenu de la base SQLite")
+        cur.execute("SELECT * FROM biens_supports LIMIT 5;")
+        rows = cur.fetchall()
+        if not rows:
+            print("⚠ Aucun bien support enregistré dans la base de données.")
+            return
+
+        print("📊 Vérification des relations jointure")
+        cur.execute("SELECT * FROM jointure LIMIT 5;")
+        jointure_rows = cur.fetchall()
+        if not jointure_rows:
+            print("⚠ Aucune relation BS-VM enregistrée dans `jointure`.")
+            return
+
+        print("📊 Vérification des valeurs héritées C, I, A")
+        cur.execute("SELECT bs_id, C_heritage, I_heritage, A_heritage FROM biens_supports LIMIT 5;")
+        heritage_rows = cur.fetchall()
+        for row in heritage_rows:
+            print(f"  BS: {row[0]}, C: {row[1]}, I: {row[2]}, A: {row[3]}")
+
+        print("📊 Vérification avant exécution de `boite()`")
+        print(f"📊 Contenu actuel de `dicoListePx` avant exécution : {dicoListePx}")
+
+        # Appel de la fonction pour générer les boîtes à moustaches
+        self.boite(boite_path)
+
+        print("📊 Contenu après exécution de `boite()` :", dicoListePx)
+
         subfolder_VERT = os.path.join(boite_path, "03_VERT")
         subfolder_ORANGE = os.path.join(boite_path, "02_ORANGE")
         subfolder_ROUGE = os.path.join(boite_path, "01_ROUGE")
@@ -1400,7 +957,7 @@ class RBVMTool(QMainWindow):
 
         # 1ère étape - Intégrer les besoins de sécurité et sûreté des valeurs métiers
         security_group = QGroupBox(
-            "1ère étape : Charger (excel) les valeurs métiers ainsi que leurs besoins de sécurité et sûreté [template_prerequis DIC.xlsx]"
+            "1ère étape [MOA] : Charger (excel) les valeurs métiers ainsi que leurs besoins de sécurité et sûreté [template_prerequis DIC.xlsx]"
         )
         security_layout = QHBoxLayout()
         self.security_input = QLineEdit(self)
@@ -1410,21 +967,9 @@ class RBVMTool(QMainWindow):
         security_layout.addWidget(security_browse)
         security_group.setLayout(security_layout)
 
-        # 2ème étape - Intégrer la matrice Bien Support - Valeur Métier
-        matrix_group = QGroupBox(
-            "2ème étape : Charger la matrice (excel) associant les biens supports aux valeurs métiers [template_matrice_vm_bs.xlsx]"
-        )
-        matrix_layout = QHBoxLayout()
-        self.matrix_input = QLineEdit(self)
-        matrix_browse = QPushButton("Téléverser", self)
-        matrix_browse.clicked.connect(self.process_matrix_data)
-        matrix_layout.addWidget(self.matrix_input)
-        matrix_layout.addWidget(matrix_browse)
-        matrix_group.setLayout(matrix_layout)
-
-        # 3ème étape - Charger le fichier KEV Catalog
+        # 2ème étape - Charger le fichier KEV Catalog
         kev_group = QGroupBox(
-            "3ème étape : Charger le fichier Known Exploited Vulnerabilities (KEV) Catalog du Cybersecurity & Infrastructure Security Agency (CISA)"
+            "2ème étape [MOE] : Charger le fichier Known Exploited Vulnerabilities (KEV) Catalog du Cybersecurity & Infrastructure Security Agency (CISA)"
         )
         kev_layout = QVBoxLayout()
 
@@ -1450,9 +995,9 @@ class RBVMTool(QMainWindow):
         kev_layout.addLayout(kev_file_layout)
         kev_group.setLayout(kev_layout)
 
-        # 4ème étape - Charger VDR
+        # 3ème étape - Charger VDR
         vdr_group = QGroupBox(
-            "4ème étape : Charger tous les Vulnerability Disclosure Report (VDR) concernant l'exhaustivité des biens supports"
+            "3ème étape [MOE] : Charger tous les Vulnerability Disclosure Report (VDR) concernant l'exhaustivité des biens supports"
         )
         vdr_layout = QHBoxLayout()
         self.vdr_input = QLineEdit(self)
@@ -1461,6 +1006,18 @@ class RBVMTool(QMainWindow):
         vdr_layout.addWidget(self.vdr_input)
         vdr_layout.addWidget(vdr_browse)
         vdr_group.setLayout(vdr_layout)
+
+        # 4ème étape - Intégrer la matrice Bien Support - Valeur Métier
+        matrix_group = QGroupBox(
+            "4ème étape [MOE] : Charger la matrice (excel) associant les biens supports aux valeurs métiers [template_matrice_vm_bs.xlsx]"
+        )
+        matrix_layout = QHBoxLayout()
+        self.matrix_input = QLineEdit(self)
+        matrix_browse = QPushButton("Téléverser", self)
+        matrix_browse.clicked.connect(self.process_matrix_data)
+        matrix_layout.addWidget(self.matrix_input)
+        matrix_layout.addWidget(matrix_browse)
+        matrix_group.setLayout(matrix_layout)
 
         # Ajouter un layout horizontal pour les boutons
         buttons_layout = QHBoxLayout()
@@ -1492,9 +1049,9 @@ class RBVMTool(QMainWindow):
         # Ajout au layout principal
         main_layout.addWidget(title)
         main_layout.addWidget(security_group)  # Charger besoins de sécurité et sûreté
-        main_layout.addWidget(matrix_group)  # Charger association VM & BS
         main_layout.addWidget(kev_group)  # Charger KEV
         main_layout.addWidget(vdr_group)  # Sélectionner les VDR
+        main_layout.addWidget(matrix_group)  # Charger association VM & BS
         main_layout.addLayout(buttons_layout)
 
         # Appliquer le layout principal à la fenêtre
