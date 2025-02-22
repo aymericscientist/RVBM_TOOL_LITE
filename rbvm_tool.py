@@ -544,8 +544,6 @@ class RBVMTool(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Une erreur s'est produite : {e}")
-
-
     def parse_cvss_vector(self, vector_string):
         """Parse la chaîne vectorielle CVSS et extrait les métriques."""
         mapping = {
@@ -571,14 +569,9 @@ class RBVMTool(QMainWindow):
         return default_values
    
 # Procédure 4 -  Association valeur métier / bien support
-    
     def calculer_et_mettre_a_jour_scores_CVSS(self):
         """
-        Fusion des fonctions permettant de :
-        - Récupérer les données de la BDD
-        - Parser le vecteur CVSS
-        - Calculer les scores environnementaux
-        - Mettre à jour la base de données
+        Récupère les données de la BDD, calcule les scores environnementaux et met à jour la base.
         """
 
         # Dictionnaire pour stocker les scores par bs_id et cve_id
@@ -602,14 +595,12 @@ class RBVMTool(QMainWindow):
                 attack_vector, 
                 attack_complexity, 
                 privileges_required, 
-                user_interaction,
-                vector,
-                method
+                user_interaction
             FROM 
                 biens_supports
             ORDER BY 
                 bs_id, cve_id;
-        """
+            """
         )
         rows = cur.fetchall()
 
@@ -617,7 +608,7 @@ class RBVMTool(QMainWindow):
             print("Aucune donnée à traiter.")
             return
 
-        # Traitement de chaque ligne
+        # 🔹 Traitement de chaque ligne
         for row in rows:
             (
                 bs_id,
@@ -633,61 +624,77 @@ class RBVMTool(QMainWindow):
                 attack_complexity,
                 privileges_required,
                 user_interaction,
-                vector,
-                method,
             ) = row
 
-            # Vérification et parsing du vecteur CVSS
-            if vector and method:
-                if "CVSS:3" in vector:
-                    (
-                        attack_vector,
-                        attack_complexity,
-                        privileges_required,
-                        user_interaction,
-                        scope,
-                        confidentiality,
-                        integrity,
-                        availability,
-                    ) = var_environnementales_CVSSv3(vector)
-                elif "CVSS:2" in vector:
-                    (
-                        attack_vector,
-                        attack_complexity,
-                        privileges_required,
-                        confidentiality,
-                        integrity,
-                        availability,
-                    ) = var_environnementales_CVSSv2(vector)
-                    user_interaction = "None"
-                    scope = "None"
-                else:
-                    (
-                        attack_vector,
-                        attack_complexity,
-                        privileges_required,
-                        user_interaction,
-                        scope,
-                        confidentiality,
-                        integrity,
-                        availability,
-                    ) = var_environnementales_other(vector)
+            # 🔹 Remplacement des valeurs None par 0 pour éviter les erreurs
+            C_heritage = float(C_heritage) if C_heritage is not None else 0
+            I_heritage = float(I_heritage) if I_heritage is not None else 0
+            A_heritage = float(A_heritage) if A_heritage is not None else 0
+            impact_confidentiality = float(impact_confidentiality) if impact_confidentiality is not None else 0
+            impact_integrity = float(impact_integrity) if impact_integrity is not None else 0
+            impact_availability = float(impact_availability) if impact_availability is not None else 0
+            scope = float(scope) if scope is not None else 0
+            attack_vector = float(attack_vector) if attack_vector is not None else 0
+            attack_complexity = float(attack_complexity) if attack_complexity is not None else 0
+            privileges_required = float(privileges_required) if privileges_required is not None else 0
+            user_interaction = float(user_interaction) if user_interaction is not None else 0
 
-            # Calcul du score environnemental
+            # 🔹 Calcul du score environnemental (fusion de la fonction)
             try:
-                env_score = calcul_score_environnemental(
-                    A_heritage,
-                    I_heritage,
-                    C_heritage,
-                    impact_availability,
-                    impact_integrity,
-                    impact_confidentiality,
-                    scope,
-                    attack_vector,
-                    attack_complexity,
-                    privileges_required,
-                    user_interaction,
+                if scope == 0:  # Unchanged
+                    modified_impact = 6.42 * min(
+                        1
+                        - (1 - C_heritage * impact_confidentiality)
+                        * (1 - I_heritage * impact_integrity)
+                        * (1 - A_heritage * impact_availability),
+                        0.915,
+                    )
+                elif scope == 1:  # Changed
+                    modified_impact = (
+                        7.52
+                        * (
+                            min(
+                                1
+                                - (1 - C_heritage * impact_confidentiality)
+                                * (1 - I_heritage * impact_integrity)
+                                * (1 - A_heritage * impact_availability),
+                                0.915,
+                            )
+                            - 0.029
+                        )
+                        - 3.25
+                        * (
+                            (
+                                (
+                                    min(
+                                        1
+                                        - (1 - C_heritage * impact_confidentiality)
+                                        * (1 - I_heritage * impact_integrity)
+                                        * (1 - A_heritage * impact_availability),
+                                        0.915,
+                                    )
+                                )
+                                * 0.9731
+                                - 0.02
+                            )
+                            ** 13
+                        )
+                    )
+
+                modified_exploitability = (
+                    8.22
+                    * attack_vector
+                    * attack_complexity
+                    * privileges_required
+                    * user_interaction
                 )
+
+                if scope == 0:  # Unchanged
+                    env_score = round(min(modified_impact + modified_exploitability, 10), 2)
+                elif scope == 1:  # Changed
+                    env_score = round(
+                        min(1.08 * (modified_impact + modified_exploitability), 10), 2
+                    )
 
                 # Stockage des scores
                 if bs_id not in scores_dic:
@@ -696,9 +703,9 @@ class RBVMTool(QMainWindow):
                 scores_dic[bs_id][cve_id] = env_score
 
             except Exception as e:
-                print(f"Erreur lors du calcul pour {bs_id}, {cve_id}: {e}")
+                print(f"❌ Erreur lors du calcul pour {bs_id}, {cve_id}: {e}")
 
-        # Mise à jour de la base de données
+        # 🔹 Mise à jour de la base de données
         for bs_id, cve_scores in scores_dic.items():
             for cve_id, env_score in cve_scores.items():
                 cur.execute(
@@ -712,101 +719,7 @@ class RBVMTool(QMainWindow):
         conn.commit()
 
         print("✅ Mise à jour des scores environnementaux terminée.")
-    def calcul_score_environnemental(
-        disponibiliteVM,
-        integriteVM,
-        confidentialiteVM,
-        availability,
-        integrity,
-        confidentiality,
-        scope,
-        attack_vector,
-        attack_complexity,
-        privileges_required,
-        user_interaction,
-    ):
-        """
-        Fonction permettant de calculer le score environnemental CVSS 3.1
-        """
-        try:
-            # Conversion des valeurs en float pour le calcul
-            disponibiliteVM = float(disponibiliteVM)
-            integriteVM = float(integriteVM)
-            confidentialiteVM = float(confidentialiteVM)
-            availability = float(availability)
-            integrity = float(integrity)
-            confidentiality = float(confidentiality)
-            attack_vector = float(attack_vector)
-            attack_complexity = float(attack_complexity)
-            privileges_required = float(privileges_required)
-            user_interaction = float(user_interaction)
-        except ValueError as e:
-            print(f"Erreur de conversion: {e}")
-            return None  # Valeur par défaut si erreur
-
-        # Définition de la valeur scope
-        if scope == 0:  # "U" remplacé par 0
-            modified_impact = 6.42 * min(
-                1
-                - (1 - disponibiliteVM * availability)
-                * (1 - integriteVM * integrity)
-                * (1 - confidentialiteVM * confidentiality),
-                0.915,
-            )
-        elif scope == 1:  # "C" remplacé par 1
-            modified_impact = 7.52 * (
-                min(
-                    1
-                    - (1 - disponibiliteVM * availability)
-                    * (1 - integriteVM * integrity)
-                    * (1 - confidentialiteVM * confidentiality),
-                    0.915,
-                )
-                - 0.029
-            ) - 3.25 * (
-                (
-                    (
-                        min(
-                            1
-                            - (1 - disponibiliteVM * availability)
-                            * (1 - integriteVM * integrity)
-                            * (1 - confidentialiteVM * confidentiality),
-                            0.915,
-                        )
-                    )
-                    * 0.9731
-                    - 0.02
-                )
-                ** 13
-            )
-
-        modified_exploitability = (
-            8.22
-            * attack_vector
-            * attack_complexity
-            * privileges_required
-            * user_interaction
-        )
-
-        if scope == 0:  # "U" -> 0
-            env_score = round(min(modified_impact + modified_exploitability, 10), 2)
-        elif scope == 1:  # "C" -> 1
-            env_score = round(
-                min(1.08 * (modified_impact + modified_exploitability), 10), 2
-            )
-
-        return env_score
-    def var_environnementales_CVSSv3(svector):
-        return (
-            svector[12], svector[17], svector[22], svector[27], svector[31],
-            svector[35], svector[39], svector[43]
-        )
-    def var_environnementales_CVSSv2(svector):
-        return svector[4], svector[9], svector[14], svector[18], svector[22], svector[26]
-    def var_environnementales_other(svector):
-        return "None", "None", "None", "None", "None", "None", "None", "None"
-
-
+        conn.close()
     def process_matrix_data(self):
         """Traitement de la matrice BS-VM et validation avec la base de données."""
 
@@ -972,8 +885,6 @@ class RBVMTool(QMainWindow):
         self.calculer_et_mettre_a_jour_scores_CVSS()  # Calcul et mise à jour des scores CVSS
         
         conn.close()
-
-
 
 # Procédure 5 - Famille de fonctions concernant la génération des représentations des risques
     def generate_boxplot(entity_id, impact, p1, p2, p3, p4, p5, folder_path):
@@ -1454,40 +1365,6 @@ def var_environnementales_CVSSv3(svector):
         integrity,
         availability,
     )  # Fonction permettant de parser les variables environnementales à partir du "vector" du VDR (CVSS3.0)
-def var_environnementales_CVSSv2(svector):
-    attack_vector = svector[4]
-    attack_complexity = svector[9]
-    authentification = svector[14]
-    confidentiality = svector[18]
-    integrity = svector[22]
-    availability = svector[26]
-    return (
-        attack_vector,
-        attack_complexity,
-        authentification,
-        confidentiality,
-        integrity,
-        availability,
-    )  # Fonction permettant de parser les variables environnementales à partir du "vector" du VDR (CVSS2.0)
-def var_environnementales_other(svector):
-    attack_vector = "None"
-    attack_complexity = "None"
-    privileges_required = "None"
-    user_interaction = "None"
-    scope = "None"
-    confidentiality = "None"
-    integrity = "None"
-    availability = "None"
-    return (
-        attack_vector,
-        attack_complexity,
-        privileges_required,
-        user_interaction,
-        scope,
-        confidentiality,
-        integrity,
-        availability,
-    )  # Fonction permettant de parser les variables environnementales à partir du "vector" du VDR (CVSS non spécifié)
 def calcul_score_exploitabilité(
     attack_vector, attack_complexity, privileges_required, user_interaction
 ):
