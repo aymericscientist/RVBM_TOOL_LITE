@@ -212,15 +212,15 @@ class RBVMTool(QMainWindow):
 
 # Procédure 1 - Famille de fonctions concernant la récupération et l'intégration des valeurs métiers et de leurs besoins
     def convert_level(self, value):
-        if not value:
-            return 0
-        if "E" in value:
-            return 1.5
-        elif "M" in value:
-            return 1
-        elif "L" in value:
-            return 0.5
-        return 0 # Conversion de la métrique qualitative sémantique CVSS en valeur numérique
+            if value == "Non défini [X]":  # Cas "Non défini" [X]
+                return 0
+                
+            if value == "Elevée [H]":  # Élevée
+                return 1.5
+            elif value == "Moyenne [M]":  # Moyenne
+                return 1
+            elif value == "Faible [L]":  # Faible
+                return 0.5 # Conversion de la métrique qualitative sémantique CVSS en valeur numérique
     def master_function_charger_VM(self): 
         # Étape 1 : Sélection du fichier
         file_path, _ = QFileDialog.getOpenFileName(
@@ -246,8 +246,8 @@ class RBVMTool(QMainWindow):
             results = {}
 
             # Identifier les colonnes contenant les besoins DIC
-            col_dispo = 7   # G - Besoin de disponibilité (Dx)
-            col_integ = 10  # J - Besoin d’intégrité (Ix)
+            col_dispo = 8   # H - Besoin de disponibilité (Dx)
+            col_integ = 11  # K - Besoin d’intégrité (Ix)
             col_confid = 13 # M - Besoin de confidentialité (Cx)
 
             for row in range(3, sheet.max_row + 1):
@@ -282,7 +282,7 @@ class RBVMTool(QMainWindow):
                 CREATE TABLE IF NOT EXISTS biens_supports(
                     bs_id TEXT, 
                     cve_id TEXT,
-                    bom_ref TEXT,
+                    bom_serial TEXT,
                     composant_ref TEXT,
                     severity TEXT,
                     score_cvss REAL,
@@ -438,13 +438,13 @@ class RBVMTool(QMainWindow):
 
             for vdr_data in self.vdr_data_list:
                 bs_id = vdr_data.get("metadata", {}).get("component", {}).get("name")
-                serialNumber = vdr_data.get("serialNumber")
+                bom_serial = vdr_data.get("serialNumber")
 
                 # 🔍 Vérifier si le bs_id est bien extrait
-                print(f"🔍 bs_id extrait du VDR : {bs_id}, SerialNumber : {serialNumber}")
+                print(f"🔍 bs_id extrait du VDR : {bs_id}, référence SBOM : {bom_serial}")
 
-                if not bs_id or not serialNumber:
-                    print("⚠ VDR invalide, absence de `bs_id` ou `serialNumber`.")
+                if not bs_id or not bom_serial:
+                    print("⚠ VDR invalide, absence de `bs_id` ou `bom_serial`.")
                     continue
 
                 # 🔹 Extraction et insertion des vulnérabilités (CVE)
@@ -452,64 +452,99 @@ class RBVMTool(QMainWindow):
 
                 for vulnerability in list_vulnerabilities:
                     cve_id = vulnerability.get("id")
+                    composant_ref = vulnerability.get("bom-ref")
+                
+                    print(f"🔍 cve_id extrait du VDR : {cve_id}, composant_ref extrait du VDR : {composant_ref}")
                     if not cve_id or "GHSA" in cve_id:
                         continue
 
-                    # Récupération des valeurs essentielles
-                    score_CVSS = vulnerability.get("ratings", [{}])[0].get("score")
-                    severity = vulnerability.get("ratings", [{}])[0].get("severity")
-                    method = vulnerability.get("ratings", [{}])[0].get("method")
+                    # 🔹 Filtrer les entrées pour ne prendre que celles avec method="CVSSv3"
+                    ratings = [rating for rating in vulnerability.get("ratings", []) if rating.get("method") == "CVSSv3"]
 
-                    if not score_CVSS or "CVSSv2" in method:
-                        continue
+                    if not ratings:
+                        print(f"⚠ Ignoré : {cve_id} car aucune notation CVSSv3 trouvée.")
+                        continue  # Passer à la CVE suivante
 
-                    # Vérification si c'est une CVE connue exploitée (KEV)
-                    kev = "YES" if cve_id in self.kev_data else "NO"
+                    for rating in ratings:
+                        score_CVSS = rating.get("score")
+                        severity = rating.get("severity")
+                        method = rating.get("method")
+                        vector = rating.get("vector", "")
 
-                    # 🔹 Parsing du vecteur CVSS
-                    vector = vulnerability.get("ratings", [{}])[0].get("vector", "")
-                    vector_dict = {key: value for key, value in (item.split(":") for item in vector.replace("CVSS:3.0/", "").split("/")) if key in CVSS_NUMERIC_VALUES}
+                        if not score_CVSS:
+                            continue
 
-                    # 🔹 Conversion des valeurs CVSS en numérique
-                    attack_vector = CVSS_NUMERIC_VALUES["AV"].get(vector_dict.get("AV", "N"), None)
-                    attack_complexity = CVSS_NUMERIC_VALUES["AC"].get(vector_dict.get("AC", "L"), None)
-                    privileges_required = CVSS_NUMERIC_VALUES["PR"].get(vector_dict.get("PR", "N"), None)
-                    user_interaction = CVSS_NUMERIC_VALUES["UI"].get(vector_dict.get("UI", "N"), None)
-                    scope = CVSS_NUMERIC_VALUES["S"].get(vector_dict.get("S", "U"), None)
-                    impact_confidentiality = CVSS_NUMERIC_VALUES["C"].get(vector_dict.get("C", "N"), None)
-                    impact_integrity = CVSS_NUMERIC_VALUES["I"].get(vector_dict.get("I", "N"), None)
-                    impact_availability = CVSS_NUMERIC_VALUES["A"].get(vector_dict.get("A", "N"), None)
+                        # Vérification si c'est une CVE connue exploitée (KEV)
+                        kev = "YES" if cve_id in self.kev_data else "NO"
 
-                    # 🔹 Ajout dans la base de données
-                    try:
-                        cur.execute(
-                            """
-                            INSERT INTO biens_supports(
-                                bs_id, cve_id, severity, score_cvss, KEV,
-                                attack_vector, attack_complexity, privileges_required,
-                                user_interaction, scope, impact_confidentiality,
-                                impact_integrity, impact_availability
-                            )
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            ON CONFLICT (bs_id, cve_id) DO NOTHING;
-                            """,
+                        # 🔹 Parsing du vecteur CVSS
+                        vector_dic = {key: value for key, value in (item.split(":") for item in vector.replace("CVSS:3.0/", "").split("/")) if key in CVSS_NUMERIC_VALUES}
+
+                        # 🔹 Conversion des valeurs CVSS en numérique
+                        attack_vector = CVSS_NUMERIC_VALUES["AV"].get(vector_dic.get("AV", "N"), 0)
+                        attack_complexity = CVSS_NUMERIC_VALUES["AC"].get(vector_dic.get("AC", "L"), 0)
+                        privileges_required = CVSS_NUMERIC_VALUES["PR"].get(vector_dic.get("PR", "N"), 0)
+                        user_interaction = CVSS_NUMERIC_VALUES["UI"].get(vector_dic.get("UI", "N"), 0)
+                        scope = CVSS_NUMERIC_VALUES["S"].get(vector_dic.get("S", "U"), 0)
+                        impact_confidentiality = CVSS_NUMERIC_VALUES["C"].get(vector_dic.get("C", "N"), 0)
+                        impact_integrity = CVSS_NUMERIC_VALUES["I"].get(vector_dic.get("I", "N"), 0)
+                        impact_availability = CVSS_NUMERIC_VALUES["A"].get(vector_dic.get("A", "N"), 0)
+
+                        # 🔹 Calcul du score d'exploitabilité
+                        exp_score = round(
                             (
-                                bs_id, cve_id, severity, score_CVSS, kev,
-                                attack_vector, attack_complexity, privileges_required,
-                                user_interaction, scope, impact_confidentiality,
-                                impact_integrity, impact_availability
-                            ),
+                                8.22
+                                * attack_vector
+                                * attack_complexity
+                                * privileges_required
+                                * user_interaction
+                            ) / 3.9 * 4, 
+                            1
                         )
-                        conn.commit()
-                        print(f"✅ CVE {cve_id} insérée pour {bs_id}")
 
-                    except sqlite3.Error as e:
-                        print(f"❌ Erreur SQLite lors de l'insertion de la CVE {cve_id} : {e}")
+                        # 🔹 Ajout dans la base de données
+                        try:
+                            cur.execute(
+                                """
+                                INSERT INTO biens_supports(
+                                    bs_id, cve_id, bom_serial, composant_ref, severity, score_cvss, KEV,
+                                    attack_vector, attack_complexity, privileges_required,
+                                    user_interaction, scope, impact_confidentiality,
+                                    impact_integrity, impact_availability, exp_score
+                                )
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                ON CONFLICT (bs_id, cve_id) DO UPDATE SET 
+                                    severity=excluded.severity,
+                                    score_cvss=excluded.score_cvss,
+                                    KEV=excluded.KEV,
+                                    attack_vector=excluded.attack_vector,
+                                    attack_complexity=excluded.attack_complexity,
+                                    privileges_required=excluded.privileges_required,
+                                    user_interaction=excluded.user_interaction,
+                                    scope=excluded.scope,
+                                    impact_confidentiality=excluded.impact_confidentiality,
+                                    impact_integrity=excluded.impact_integrity,
+                                    impact_availability=excluded.impact_availability,
+                                    exp_score=excluded.exp_score;
+                                """,
+                                (
+                                    bs_id, cve_id, bom_serial, composant_ref, severity, score_CVSS, kev,
+                                    attack_vector, attack_complexity, privileges_required,
+                                    user_interaction, scope, impact_confidentiality,
+                                    impact_integrity, impact_availability, exp_score
+                                ),
+                            )
+                            conn.commit()
+                            print(f"✅ CVE {cve_id} insérée pour {bs_id} avec exp_score: {exp_score}")
+
+                        except sqlite3.Error as e:
+                            print(f"❌ Erreur SQLite lors de l'insertion de la CVE {cve_id} : {e}")
 
             print("✅ Mise à jour des biens supports avec les données des VDR.")
 
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Une erreur s'est produite : {e}")
+
 
     def parse_cvss_vector(self, vector_string):
         """Parse la chaîne vectorielle CVSS et extrait les métriques."""
@@ -535,38 +570,249 @@ class RBVMTool(QMainWindow):
 
         return default_values
    
-
-
 # Procédure 4 -  Association valeur métier / bien support
-    def update_micro_heritage():
+    
+    def calculer_et_mettre_a_jour_scores_CVSS(self):
+        """
+        Fusion des fonctions permettant de :
+        - Récupérer les données de la BDD
+        - Parser le vecteur CVSS
+        - Calculer les scores environnementaux
+        - Mettre à jour la base de données
+        """
+
+        # Dictionnaire pour stocker les scores par bs_id et cve_id
+        scores_dic = {}
+
+        # Récupération des données depuis la base de données
+        conn = sqlite3.connect("rbvm.db")
+        cur = conn.cursor()
         cur.execute(
             """
-            UPDATE biens_supports
-            SET 
-                C_heritage = (
-                    SELECT MAX(vm.C)
-                    FROM jointure j
-                    JOIN valeurs_metiers vm ON j.vm_id = vm.name
-                    WHERE j.bs_id = biens_supports.bs_id
-                ),
-                I_heritage = (
-                    SELECT MAX(vm.I)
-                    FROM jointure j
-                    JOIN valeurs_metiers vm ON j.vm_id = vm.name
-                    WHERE j.bs_id = biens_supports.bs_id
-                ),
-                A_heritage = (
-                    SELECT MAX(vm.A)
-                    FROM jointure j
-                    JOIN valeurs_metiers vm ON j.vm_id = vm.name
-                    WHERE j.bs_id = biens_supports.bs_id
-                );
-        """)
-        conn.commit() # Mettre à jour les valeurs C (confidentialité), I (intégrité) et A (disponibilité) dans biens_supports en fonction de la valeur métier associée, si plusieurs associations alors Max       
+            SELECT 
+                bs_id,
+                cve_id,
+                C_heritage, 
+                I_heritage, 
+                A_heritage, 
+                impact_confidentiality, 
+                impact_integrity, 
+                impact_availability, 
+                scope, 
+                attack_vector, 
+                attack_complexity, 
+                privileges_required, 
+                user_interaction,
+                vector,
+                method
+            FROM 
+                biens_supports
+            ORDER BY 
+                bs_id, cve_id;
+        """
+        )
+        rows = cur.fetchall()
+
+        if len(rows) == 0:
+            print("Aucune donnée à traiter.")
+            return
+
+        # Traitement de chaque ligne
+        for row in rows:
+            (
+                bs_id,
+                cve_id,
+                C_heritage,
+                I_heritage,
+                A_heritage,
+                impact_confidentiality,
+                impact_integrity,
+                impact_availability,
+                scope,
+                attack_vector,
+                attack_complexity,
+                privileges_required,
+                user_interaction,
+                vector,
+                method,
+            ) = row
+
+            # Vérification et parsing du vecteur CVSS
+            if vector and method:
+                if "CVSS:3" in vector:
+                    (
+                        attack_vector,
+                        attack_complexity,
+                        privileges_required,
+                        user_interaction,
+                        scope,
+                        confidentiality,
+                        integrity,
+                        availability,
+                    ) = var_environnementales_CVSSv3(vector)
+                elif "CVSS:2" in vector:
+                    (
+                        attack_vector,
+                        attack_complexity,
+                        privileges_required,
+                        confidentiality,
+                        integrity,
+                        availability,
+                    ) = var_environnementales_CVSSv2(vector)
+                    user_interaction = "None"
+                    scope = "None"
+                else:
+                    (
+                        attack_vector,
+                        attack_complexity,
+                        privileges_required,
+                        user_interaction,
+                        scope,
+                        confidentiality,
+                        integrity,
+                        availability,
+                    ) = var_environnementales_other(vector)
+
+            # Calcul du score environnemental
+            try:
+                env_score = calcul_score_environnemental(
+                    A_heritage,
+                    I_heritage,
+                    C_heritage,
+                    impact_availability,
+                    impact_integrity,
+                    impact_confidentiality,
+                    scope,
+                    attack_vector,
+                    attack_complexity,
+                    privileges_required,
+                    user_interaction,
+                )
+
+                # Stockage des scores
+                if bs_id not in scores_dic:
+                    scores_dic[bs_id] = {}
+
+                scores_dic[bs_id][cve_id] = env_score
+
+            except Exception as e:
+                print(f"Erreur lors du calcul pour {bs_id}, {cve_id}: {e}")
+
+        # Mise à jour de la base de données
+        for bs_id, cve_scores in scores_dic.items():
+            for cve_id, env_score in cve_scores.items():
+                cur.execute(
+                    """
+                    UPDATE biens_supports
+                    SET env_score = ?
+                    WHERE bs_id = ? AND cve_id = ?;
+                """,
+                    (env_score, bs_id, cve_id),
+                )
+        conn.commit()
+
+        print("✅ Mise à jour des scores environnementaux terminée.")
+    def calcul_score_environnemental(
+        disponibiliteVM,
+        integriteVM,
+        confidentialiteVM,
+        availability,
+        integrity,
+        confidentiality,
+        scope,
+        attack_vector,
+        attack_complexity,
+        privileges_required,
+        user_interaction,
+    ):
+        """
+        Fonction permettant de calculer le score environnemental CVSS 3.1
+        """
+        try:
+            # Conversion des valeurs en float pour le calcul
+            disponibiliteVM = float(disponibiliteVM)
+            integriteVM = float(integriteVM)
+            confidentialiteVM = float(confidentialiteVM)
+            availability = float(availability)
+            integrity = float(integrity)
+            confidentiality = float(confidentiality)
+            attack_vector = float(attack_vector)
+            attack_complexity = float(attack_complexity)
+            privileges_required = float(privileges_required)
+            user_interaction = float(user_interaction)
+        except ValueError as e:
+            print(f"Erreur de conversion: {e}")
+            return None  # Valeur par défaut si erreur
+
+        # Définition de la valeur scope
+        if scope == 0:  # "U" remplacé par 0
+            modified_impact = 6.42 * min(
+                1
+                - (1 - disponibiliteVM * availability)
+                * (1 - integriteVM * integrity)
+                * (1 - confidentialiteVM * confidentiality),
+                0.915,
+            )
+        elif scope == 1:  # "C" remplacé par 1
+            modified_impact = 7.52 * (
+                min(
+                    1
+                    - (1 - disponibiliteVM * availability)
+                    * (1 - integriteVM * integrity)
+                    * (1 - confidentialiteVM * confidentiality),
+                    0.915,
+                )
+                - 0.029
+            ) - 3.25 * (
+                (
+                    (
+                        min(
+                            1
+                            - (1 - disponibiliteVM * availability)
+                            * (1 - integriteVM * integrity)
+                            * (1 - confidentialiteVM * confidentiality),
+                            0.915,
+                        )
+                    )
+                    * 0.9731
+                    - 0.02
+                )
+                ** 13
+            )
+
+        modified_exploitability = (
+            8.22
+            * attack_vector
+            * attack_complexity
+            * privileges_required
+            * user_interaction
+        )
+
+        if scope == 0:  # "U" -> 0
+            env_score = round(min(modified_impact + modified_exploitability, 10), 2)
+        elif scope == 1:  # "C" -> 1
+            env_score = round(
+                min(1.08 * (modified_impact + modified_exploitability), 10), 2
+            )
+
+        return env_score
+    def var_environnementales_CVSSv3(svector):
+        return (
+            svector[12], svector[17], svector[22], svector[27], svector[31],
+            svector[35], svector[39], svector[43]
+        )
+    def var_environnementales_CVSSv2(svector):
+        return svector[4], svector[9], svector[14], svector[18], svector[22], svector[26]
+    def var_environnementales_other(svector):
+        return "None", "None", "None", "None", "None", "None", "None", "None"
+
+
     def process_matrix_data(self):
+        """Traitement de la matrice BS-VM et validation avec la base de données."""
+
         # Étape 1 : Sélection du fichier via l'interface
         self.browse_matrix()
-    
+
         # Vérifier si un fichier a bien été sélectionné
         file_path = self.matrix_input.text().strip()
         if not file_path:
@@ -576,16 +822,20 @@ class RBVMTool(QMainWindow):
         # Étape 2 : Extraction des données de la matrice
         wb = openpyxl.load_workbook(file_path)
         feuille = wb.active
-        vm_names = [feuille.cell(row=1, column=col).value for col in range(2, feuille.max_column + 1)] # Récupération des noms des valeurs métiers (VM) à partir de la première ligne (hors colonne A)
-        bs_names = [feuille.cell(row=row, column=1).value for row in range(2, feuille.max_row + 1)] # Récupération des noms des biens supports (BS) à partir de la colonne A (hors ligne 1)
+
+        vm_names = [str(feuille.cell(row=1, column=col).value).strip() for col in range(2, feuille.max_column + 1)
+            if feuille.cell(row=1, column=col).value is not None]
+        bs_names = [str(feuille.cell(row=row, column=1).value).strip() for row in range(2, feuille.max_row + 1)
+            if feuille.cell(row=row, column=1).value is not None]
+
         results = {}
 
         # Analyse de la matrice BS-VM
-        for col_idx, vm_name in enumerate(vm_names, start=2):  # Colonnes B à la dernière
+        for col_idx, vm_name in enumerate(vm_names, start=2):
             if not vm_name:
                 continue
 
-            for row_idx, bs_name in enumerate(bs_names, start=2):  # Lignes 2 à la dernière
+            for row_idx, bs_name in enumerate(bs_names, start=2):
                 cell_value = feuille.cell(row=row_idx, column=col_idx).value
 
                 if cell_value and str(cell_value).strip().lower() == "oui":
@@ -593,24 +843,64 @@ class RBVMTool(QMainWindow):
                         results[vm_name] = []
                     results[vm_name].append(bs_name)
 
-        print("✅ Matrice BS-VM traitée avec succès :", results)  # Vérification en console
+        print("✅ Matrice BS-VM traitée avec succès :", results)
 
-        # Étape 3 : Insertion des données dans la base de données
+        # Étape 2B : Vérification des biens supports et valeurs métiers dans la base
         conn = sqlite3.connect("rbvm.db")
         cur = conn.cursor()
-    
-        for bs_id in bs_names: # Insérer les biens supports dans la table `biens_supports` s'ils n'existent pas déjà
-            cur.execute(
-                """
-                INSERT INTO biens_supports (bs_id)
-                VALUES (?)
-                ON CONFLICT(bs_id) DO NOTHING;
-                """,
-                (bs_id,),
+
+        # 🔹 Vérification des biens supports
+        cur.execute("SELECT bs_id FROM biens_supports ORDER BY bs_id;")
+        bs_from_db = {row[0] for row in cur.fetchall()}
+
+        missing_bs_in_db = set(bs_names) - bs_from_db
+        missing_bs_in_excel = bs_from_db - set(bs_names)
+
+        # 🔹 Vérification des valeurs métiers
+        cur.execute("SELECT name FROM valeurs_metiers ORDER BY name;")
+        vm_from_db = {row[0] for row in cur.fetchall()}
+
+        missing_vm_in_db = set(vm_names) - vm_from_db
+        missing_vm_in_excel = vm_from_db - set(vm_names)
+
+        # ⚠ Bloquer si des biens supports du fichier Excel ne sont pas en base
+        if missing_bs_in_db:
+            error_message_bs = (
+                "⚠ ERREUR : Certains biens supports présents dans le fichier Excel ne sont pas en base de données !\n\n"
+                "Veuillez charger les VDR correspondants avant de continuer.\n\n"
+                "🛑 Biens supports manquants en base :\n"
+                + "\n".join(sorted(str(bs) for bs in missing_bs_in_db if bs is not None))
             )
-        conn.commit()
-        
-        for vm_id, bs_ids in results.items():  # Insérer les relations dans la table `jointure`
+            print(error_message_bs)
+            QMessageBox.critical(self, "Erreur Biens Supports", error_message_bs)
+            conn.close()
+            return  # Stopper l'exécution ici !
+
+        # ⚠ Bloquer si des valeurs métiers du fichier Excel ne sont pas en base
+        if missing_vm_in_db:
+            error_message_vm = (
+                "⚠ ERREUR : Certaines valeurs métiers présentes dans le fichier Excel ne sont pas en base de données !\n\n"
+                "Veuillez charger le premier fichier Excel des valeurs métiers avant de continuer.\n\n"
+                "🛑 Valeurs métiers manquantes en base :\n"
+                + "\n".join(sorted(str(vm) for vm in missing_vm_in_db if vm is not None))
+            )
+            print(error_message_vm)
+            QMessageBox.critical(self, "Erreur Valeurs Métiers", error_message_vm)
+            conn.close()
+            return  # Stopper l'exécution ici !
+
+        # 🛈 Information : Afficher si des biens supports existent en base mais ne sont pas dans Excel
+        if missing_bs_in_excel:
+            print(f"⚠ Information : Certains biens supports existent en base mais ne sont pas référencés dans l'Excel : {missing_bs_in_excel}")
+
+        # 🛈 Information : Afficher si des valeurs métiers existent en base mais ne sont pas dans Excel
+        if missing_vm_in_excel:
+            print(f"⚠ Information : Certaines valeurs métiers existent en base mais ne sont pas référencées dans l'Excel : {missing_vm_in_excel}")
+
+
+
+        # Étape 3 : Insérer les relations dans la table `jointure`
+        for vm_id, bs_ids in results.items():
             for bs_id in bs_ids:
                 cur.execute(
                     """
@@ -620,7 +910,7 @@ class RBVMTool(QMainWindow):
                     (bs_id, vm_id),
                 )
         conn.commit()
-    
+
         print("✅ Relations BS-VM enregistrées avec succès.")
 
         # Étape 4 : Mise à jour des valeurs héritées C, I, A
@@ -651,100 +941,39 @@ class RBVMTool(QMainWindow):
         conn.commit()
 
         print("✅ Mise à jour des valeurs héritées C, I, A terminée.")
+        
+        # Création des vues 
 
-    def option_5_calcul_scores():
-        # Dictionnaire pour stocker les scores par bs_id et cve_id
-        scores_dict = {}
+        # Suppression des vues existantes
+        cur.execute("DROP VIEW IF EXISTS impact_confidentiality;")
+        cur.execute("DROP VIEW IF EXISTS impact_integrity;")
+        cur.execute("DROP VIEW IF EXISTS impact_availability;")
 
-        # Récupération des données
-        cur.execute(
-            """
-            SELECT 
-                bs_id,
-                cve_id,
-                C_heritage, 
-                I_heritage, 
-                A_heritage, 
-                impact_confidentiality, 
-                impact_integrity, 
-                impact_availability, 
-                scope, 
-                attack_vector, 
-                attack_complexity, 
-                privileges_required, 
-                user_interaction 
-            FROM 
-                biens_supports
-            ORDER BY 
-                bs_id, cve_id;
-        """
-        )
-        rows = cur.fetchall()
+        # Création des nouvelles vues mises à jour
+        cur.execute("""
+            CREATE VIEW impact_confidentiality AS
+            SELECT * FROM biens_supports WHERE impact_confidentiality != 0;
+        """)
 
-        if len(rows) == 0:
-            print("Aucune donnée à traiter.")
-            return
+        cur.execute("""
+            CREATE VIEW impact_integrity AS
+            SELECT * FROM biens_supports WHERE impact_integrity != 0;
+        """)
 
-        # Traitement de chaque ligne
-        for row in rows:
-            (
-                bs_id,
-                cve_id,
-                C_heritage,
-                I_heritage,
-                A_heritage,
-                impact_confidentiality,
-                impact_integrity,
-                impact_availability,
-                scope,
-                attack_vector,
-                attack_complexity,
-                privileges_required,
-                user_interaction,
-            ) = row
+        cur.execute("""
+            CREATE VIEW impact_availability AS
+            SELECT * FROM biens_supports WHERE impact_availability != 0;
+        """)
 
-            # Conversion des valeurs textuelles en numériques
-            impact_availability_num = convert_cia_to_numeric(impact_availability)
-            impact_integrity_num = convert_cia_to_numeric(impact_integrity)
-            impact_confidentiality_num = convert_cia_to_numeric(impact_confidentiality)
+        conn.commit()  # Enregistre les modifications en base
+        
+        # calcul score environnemental CVSS
 
-            try:
-                # Calcul du score environnemental
-                env_score = calcul_score_environnemental(
-                    A_heritage,
-                    I_heritage,
-                    C_heritage,
-                    impact_availability_num,
-                    impact_integrity_num,
-                    impact_confidentiality_num,
-                    scope,
-                    attack_vector,
-                    attack_complexity,
-                    privileges_required,
-                    user_interaction,
-                )
+        self.calculer_et_mettre_a_jour_scores_CVSS()  # Calcul et mise à jour des scores CVSS
+        
+        conn.close()
 
-                # Stockage des scores
-                if bs_id not in scores_dict:
-                    scores_dict[bs_id] = {}
 
-                scores_dict[bs_id][cve_id] = env_score
-
-            except Exception as e:
-                print(f"Erreur lors du calcul pour {bs_id}, {cve_id}: {e}")
-
-        # Mise à jour de la base de données
-        for bs_id, cve_scores in scores_dict.items():
-            for cve_id, env_score in cve_scores.items():
-                cur.execute(
-                    """
-                    UPDATE biens_supports
-                    SET env_score = ?
-                    WHERE bs_id = ? AND cve_id = ?;
-                """,
-                    (env_score, bs_id, cve_id),
-                )
-        conn.commit() # calcul et de la mise à jour des scores environnementaux
 
 # Procédure 5 - Famille de fonctions concernant la génération des représentations des risques
     def generate_boxplot(entity_id, impact, p1, p2, p3, p4, p5, folder_path):
@@ -860,7 +1089,6 @@ class RBVMTool(QMainWindow):
             p5 = dicoGlobal[impact]["p5"]
 
             self.generate_boxplot("Meta_VM", impact, p1, p2, p3, p4, p5, folder_VM_META) # Création des boîtes à moustaches pour la représentation globale des valeurs métiers
-
 
     def start_conversion_MOE(self):
         print("Début de la génération des représentations MOE")
@@ -1424,7 +1652,7 @@ def calcul_score_environnemental(
     )
 def option_5_calcul_scores():
     # Dictionnaire pour stocker les scores par bs_id et cve_id
-    scores_dict = {}
+    scores_dic = {}
 
     # Récupération des données
     cur.execute(
@@ -1495,16 +1723,16 @@ def option_5_calcul_scores():
             )
 
             # Stockage des scores
-            if bs_id not in scores_dict:
-                scores_dict[bs_id] = {}
+            if bs_id not in scores_dic:
+                scores_dic[bs_id] = {}
 
-            scores_dict[bs_id][cve_id] = env_score
+            scores_dic[bs_id][cve_id] = env_score
 
         except Exception as e:
             print(f"Erreur lors du calcul pour {bs_id}, {cve_id}: {e}")
 
     # Mise à jour de la base de données
-    for bs_id, cve_scores in scores_dict.items():
+    for bs_id, cve_scores in scores_dic.items():
         for cve_id, env_score in cve_scores.items():
             cur.execute(
                 """
