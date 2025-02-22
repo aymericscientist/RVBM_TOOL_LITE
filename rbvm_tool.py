@@ -28,6 +28,8 @@ from tabulate import tabulate  # Formatage des tableaux pour l'affichage CLI
 
 # Imports pour l'affichage graphique
 import matplotlib.pyplot as plt  # Génération de graphiques
+import matplotlib.image as mpimg
+from io import BytesIO
 
 # Imports PyQt5 pour l'interface utilisateur
 from PyQt5.QtWidgets import (
@@ -887,22 +889,76 @@ class RBVMTool(QMainWindow):
         conn.close()
 
 # Procédure 5 - Famille de fonctions concernant la génération des représentations des risques
-    def generate_boxplot(entity_id, impact, p1, p2, p3, p4, p5, folder_path):
+    def definitionPx(self, p2, p3, p4, p5, scoreEnv, scoreExp):
+        if 9.0 <= scoreEnv <= 10.0:
+            p2.append(scoreExp)
+        elif 7.0 <= scoreEnv <= 8.9:
+            p3.append(scoreExp)
+        elif 4.0 <= scoreEnv <= 6.9:
+            p4.append(scoreExp)
+        elif 0.1 <= scoreEnv <= 3.9:
+            p5.append(scoreExp)
+        else:
+            pass
+
+        return (
+            p2,
+            p3,
+            p4,
+            p5,
+        )  # Fonction permettant de trier dans la P(x) associée aux scores d'exploitabilité si NON KEV
+
+    def generate_boxplot(self, entity_id, impact, p1, p2, p3, p4, p5, folder_path):
         data = [p5, p4, p3, p2, p1]
         labels = ["P5", "P4", "P3", "P2", "P1"]
 
         now = datetime.now()
         date = now.strftime("%d.%m.%Y")
         name = f"{entity_id}-{impact}-{date}"
+    
+        # URL de l'image de fond
+        url = "https://raw.githubusercontent.com/aymericscientist/RVBM_TOOL_LITE/e503bf55ab8210858b010477e419ad3aa2585ae6/fond.png"
 
-        # Création du graphique
-        fig, ax = plt.subplots(figsize=(10, 5))
-        ax.boxplot(data, vert=False, labels=labels, patch_artist=True, showfliers=False)
-        ax.set_title(f"{entity_id} - {impact.capitalize()}")
-        ax.set_xlabel("Score d'exploitabilité")
+        try:
+            # Télécharger l'image depuis l'URL
+            response = requests.get(url)
+            response.raise_for_status()  # Vérifie si la requête est réussie
 
-        plt.savefig(f"{folder_path}/{name}.png", format="png", dpi=300)
-        plt.close(fig) # Génère et sauvegarde une boîte à moustaches pour un bien support ou une valeur métier
+            # Charger l'image depuis la mémoire sans l'enregistrer sur disque
+            img = mpimg.imread(BytesIO(response.content), format='png')
+
+            # Création du graphique
+            fig, ax = plt.subplots(figsize=(10, 5))
+
+            # Ajuster l'`extent` pour caler l'image correctement sur les niveaux P1-P5
+            ax.imshow(img, aspect='auto', extent=[0, 4, 0.5, 5.5], alpha=1, zorder=0)
+
+            # Tracer la boîte à moustaches par-dessus
+            ax.boxplot(data, vert=False, patch_artist=True, showfliers=False, labels=labels, zorder=1)
+
+            # Ajouter titre et labels
+            ax.set_title(f"{entity_id} - {impact.capitalize()}")
+            ax.set_xlabel("Score d'exploitabilité")
+
+            # Ajuster l'axe X (score exploitabilité) de 0 à 4 avec des intervalles de 0.5
+            ax.set_xlim(0, 4)
+            ax.set_xticks([i * 0.5 for i in range(9)])  # De 0 à 4 avec un pas de 0.5
+
+            # Ajuster l'axe Y (catégories P1 à P5) pour caler parfaitement avec les marches
+            ax.set_ylim(0.5, 5.5)
+            ax.set_yticks([1, 2, 3, 4, 5])
+            ax.set_yticklabels(["P1", "P2", "P3", "P4", "P5"])
+
+            # Sauvegarde de l'image avec la boxplot
+            plt.savefig(f"{folder_path}/{name}.png", format="png", dpi=300)
+            plt.close(fig)
+
+            print(f"✅ Boxplot alignée avec l'image de fond : {folder_path}/{name}.png")
+
+        except requests.RequestException as e:
+            print(f"❌ Erreur lors du téléchargement de l'image de fond : {e}")
+
+
     def boite(self, boite_path):
         cur.execute("SELECT DISTINCT bs_id FROM biens_supports;")
         bs = cur.fetchall()
@@ -942,7 +998,7 @@ class RBVMTool(QMainWindow):
                     if cve_id in kev_data:
                         p1.append(exp_score)
                     else:
-                        p2, p3, p4, p5 = definitionPx(p2, p3, p4, p5, env_score, exp_score)
+                        p2, p3, p4, p5 = self.definitionPx(p2, p3, p4, p5, env_score, exp_score)
 
                 # Stockage dans `dicoListePx`
                 impact_key = f"{b}-{impact}"
@@ -1000,6 +1056,7 @@ class RBVMTool(QMainWindow):
             p5 = dicoGlobal[impact]["p5"]
 
             self.generate_boxplot("Meta_VM", impact, p1, p2, p3, p4, p5, folder_VM_META) # Création des boîtes à moustaches pour la représentation globale des valeurs métiers
+
 
     def start_conversion_MOE(self):
         print("Début de la génération des représentations MOE")
@@ -1628,22 +1685,5 @@ def convert_cia_to_numeric(value):
     elif value == "H":
         return 0.56  # High
     return 0  # Fonctions de conversion des valeurs d'impact CIA en valeurs numériques
-def definitionPx(p2, p3, p4, p5, scoreEnv, scoreExp):
-    if 9.0 <= scoreEnv <= 10.0:
-        p2.append(scoreExp)
-    elif 7.0 <= scoreEnv <= 8.9:
-        p3.append(scoreExp)
-    elif 4.0 <= scoreEnv <= 6.9:
-        p4.append(scoreExp)
-    elif 0.1 <= scoreEnv <= 3.9:
-        p5.append(scoreExp)
-    else:
-        pass
 
-    return (
-        p2,
-        p3,
-        p4,
-        p5,
-    )  # Fonction permettant de trier dans la P(x) associée aux scores d'exploitabilité si NON KEV
 
