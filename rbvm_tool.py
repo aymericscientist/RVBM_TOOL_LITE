@@ -15,6 +15,7 @@ import sqlite3
 import requests
 from datetime import datetime
 from contextlib import ExitStack
+import numpy as np
 
 # Désactiver l'avertissement indiquant que certaines fonctionnalités du fichier excel ne sont pas prise en charge comme "Conditional Formatting extension is not supported and will be removed" et "Data Validation extension is not supported and will be removed" 
 import warnings
@@ -29,6 +30,7 @@ from tabulate import tabulate  # Formatage des tableaux pour l'affichage CLI
 # Imports pour l'affichage graphique
 import matplotlib.pyplot as plt  # Génération de graphiques
 import matplotlib.image as mpimg
+import matplotlib.patches as mpatches
 from io import BytesIO
 
 # Imports PyQt5 pour l'interface utilisateur
@@ -104,6 +106,10 @@ class RBVMTool(QMainWindow):
         global passphrase
         passphrase = self.passphrase
         print("\nPassphrase saisie avec succès")
+
+        # Initialisation de la connexion SQLite dans l'objet
+        self.conn = sqlite3.connect("rbvm.db")
+        self.cur = self.conn.cursor()
 
         self.setWindowTitle("Risk Based Vulnerability Management (RBVM) Tool")
         self.setGeometry(200, 100, 700, 800)
@@ -889,33 +895,109 @@ class RBVMTool(QMainWindow):
         conn.close()
 
 # Procédure 5 - Famille de fonctions concernant la génération des représentations des risques
+
     def definitionPx(self, p2, p3, p4, p5, scoreEnv, scoreExp):
-        if 9.0 <= scoreEnv <= 10.0:
+        """
+        Trie les scores d'exploitabilité dans les catégories P2 à P5 selon l'env_score.
+        Si une catégorie ne contient qu'une seule valeur, elle est dupliquée pour garantir 
+        un affichage correct sur la boxplot.
+
+        Args:
+            p2, p3, p4, p5 : Listes contenant les scores triés selon l'env_score.
+            scoreEnv (float) : Score environnemental à classer.
+            scoreExp (float) : Score d'exploitabilité associé.
+
+        Returns:
+            p2, p3, p4, p5 : Listes mises à jour.
+        """
+    
+        if (9.0 <= scoreEnv <= 10.0):
             p2.append(scoreExp)
-        elif 7.0 <= scoreEnv <= 8.9:
+        elif (7.0 <= scoreEnv <= 8.9):
             p3.append(scoreExp)
-        elif 4.0 <= scoreEnv <= 6.9:
+        elif (4.0 <= scoreEnv <= 6.9):
             p4.append(scoreExp)
-        elif 0.1 <= scoreEnv <= 3.9:
+        elif (0.1 <= scoreEnv <= 3.9):
             p5.append(scoreExp)
-        else:
-            pass
+    
+        return p2, p3, p4, p5
+
+
+    def triAffichageVOR(
+        p1,
+        p2,
+        p3,
+        p4,
+        p5,
+        p1Vert,
+        p1Orange,
+        p1Rouge,
+        p2Vert,
+        p2Orange,
+        p2Rouge,
+        p3Vert,
+        p3Orange,
+        p4Vert,
+        p4Orange,
+        p5Vert,
+    ):
+        for score in p1:
+            if 0 <= score <= 0.4:
+                p1Vert += 1
+            elif 0.5 <= score <= 1.4:
+                p1Orange += 1
+            else:
+                p1Rouge += 1
+
+        for score in p2:
+            if 0 <= score <= 0.4:
+                p2Vert += 1
+            elif 0.5 <= score <= 2.4:
+                p2Orange += 1
+            else:
+                p2Rouge += 1
+
+        for score in p3:
+            if 0 <= score <= 1.4:
+                p3Vert += 1
+            else:
+                p3Orange += 1
+
+        for score in p4:
+            if 0 <= score <= 2.4:
+                p4Vert += 1
+            else:
+                p4Orange += 1
+
+        for score in p5:
+            p5Vert += 1
 
         return (
-            p2,
-            p3,
-            p4,
-            p5,
-        )  # Fonction permettant de trier dans la P(x) associée aux scores d'exploitabilité si NON KEV
+            p1Vert,
+            p1Orange,
+            p1Rouge,
+            p2Vert,
+            p2Orange,
+            p2Rouge,
+            p3Vert,
+            p3Orange,
+            p4Vert,
+            p4Orange,
+            p5Vert,
+        )  # Fonction permettant de trier le nombre de CVE en vert, orange et rouge (VOR) en fonction de chaque P(x)
 
     def generate_boxplot(self, entity_id, impact, p1, p2, p3, p4, p5, folder_path):
-        data = [p5, p4, p3, p2, p1]
-        labels = ["P5", "P4", "P3", "P2", "P1"]
+        """
+        Génère un boxplot aligné avec l'image de fond et respecte l'ordre P1 (haut) -> P5 (bas).
+        """
+        # 🔹 Inverser l'ordre des données pour que P1 soit en haut et P5 en bas
+        data = [p1, p2, p3, p4, p5]
+        labels = ["P1", "P2", "P3", "P4", "P5"]
 
         now = datetime.now()
         date = now.strftime("%d.%m.%Y")
         name = f"{entity_id}-{impact}-{date}"
-    
+
         # URL de l'image de fond
         url = "https://raw.githubusercontent.com/aymericscientist/RVBM_TOOL_LITE/e503bf55ab8210858b010477e419ad3aa2585ae6/fond.png"
 
@@ -930,26 +1012,34 @@ class RBVMTool(QMainWindow):
             # Création du graphique
             fig, ax = plt.subplots(figsize=(10, 5))
 
-            # Ajuster l'`extent` pour caler l'image correctement sur les niveaux P1-P5
-            ax.imshow(img, aspect='auto', extent=[0, 4, 0.5, 5.5], alpha=1, zorder=0)
+            # 🔹 Ajustement de l’image pour qu’elle corresponde à P1 en haut et P5 en bas
+            ax.imshow(img, aspect='auto', extent=[0, 4, 5.5, 0.5], alpha=1, zorder=0)
 
-            # Tracer la boîte à moustaches par-dessus
-            ax.boxplot(data, vert=False, patch_artist=True, showfliers=False, labels=labels, zorder=1)
+            # 🔹 Tracer la boîte à moustaches par-dessus
+            boxprops = dict(facecolor="blue", alpha=0.6)  # Par défaut : bleu semi-transparent
+            medianprops = dict(color="black", linewidth=1.5)
 
-            # Ajouter titre et labels
+            # Mise en avant des boxplots où exp_score = 4
+            if all(np.median(group) == 4 for group in data if len(group) > 0):
+                medianprops = dict(color="black", linewidth=3)
+
+            ax.boxplot(data, vert=False, patch_artist=True, showfliers=True, labels=labels, 
+                       boxprops=boxprops, medianprops=medianprops, zorder=1, whis=[0, 100])
+
+            # 🔹 Ajouter titre et labels
             ax.set_title(f"{entity_id} - {impact.capitalize()}")
             ax.set_xlabel("Score d'exploitabilité")
 
-            # Ajuster l'axe X (score exploitabilité) de 0 à 4 avec des intervalles de 0.5
+            # 🔹 Ajuster l'axe X (score exploitabilité) de 0 à 4 avec des intervalles de 0.5
             ax.set_xlim(0, 4)
             ax.set_xticks([i * 0.5 for i in range(9)])  # De 0 à 4 avec un pas de 0.5
 
-            # Ajuster l'axe Y (catégories P1 à P5) pour caler parfaitement avec les marches
-            ax.set_ylim(0.5, 5.5)
+            # 🔹 Ajuster l'axe Y pour afficher P1 en haut et P5 en bas
+            ax.set_ylim(5.5, 0.5)  # 🔹 Correction ici pour inverser l'affichage
             ax.set_yticks([1, 2, 3, 4, 5])
-            ax.set_yticklabels(["P1", "P2", "P3", "P4", "P5"])
+            ax.set_yticklabels(["P1", "P2", "P3", "P4", "P5"])  # 🔹 Ordre corrigé
 
-            # Sauvegarde de l'image avec la boxplot
+            # 🔹 Sauvegarde de l'image avec la boxplot
             plt.savefig(f"{folder_path}/{name}.png", format="png", dpi=300)
             plt.close(fig)
 
@@ -959,53 +1049,67 @@ class RBVMTool(QMainWindow):
             print(f"❌ Erreur lors du téléchargement de l'image de fond : {e}")
 
 
-    def boite(self, boite_path):
-        cur.execute("SELECT DISTINCT bs_id FROM biens_supports;")
-        bs = cur.fetchall()
-        liste_dia = ["confidentiality", "integrity", "availability"]
 
-        for impact in liste_dia:
-            for b in bs:
-                b = b[0]
+
+
+
+
+    def boite(self, boite_path):
+        """
+        Génère des boîtes à moustaches pour chaque bs_id à partir des vues impact_availability, 
+        impact_confidentiality et impact_integrity en respectant les critères stricts de classification.
+        """
+        cur = self.cur  # Utilisation du curseur SQLite déjà initialisé
+        liste_impacts = ["availability", "confidentiality", "integrity"]
+        vues_impact = {
+            "availability": "impact_availability",
+            "confidentiality": "impact_confidentiality",
+            "integrity": "impact_integrity",
+        }
+
+        for impact in liste_impacts:
+            vue = vues_impact[impact]
+
+            # 🔹 Récupération des `bs_id` distincts pour le type d'impact donné
+            cur.execute(f"SELECT DISTINCT bs_id FROM {vue};")
+            bs_list = cur.fetchall()
+
+            for bs in bs_list:
+                bs_id = bs[0]
+
+                # 🔹 Récupération des valeurs exp_score, env_score et kev pour chaque `bs_id` depuis la vue correspondante
                 cur.execute(
                     f"""
-                    SELECT cve_id, exp_score, env_score 
-                    FROM biens_supports 
-                    WHERE bs_id = ? AND impact_{impact} != 'N';
-                """,
-                    (b,),
+                    SELECT exp_score, env_score, kev 
+                    FROM {vue} 
+                    WHERE bs_id = ?;
+                    """,
+                    (bs_id,),
                 )
                 data = cur.fetchall()
-                print(f"📊 Données actuelles dans biens_supports : {data}")
 
+                # 🔹 Initialisation des listes pour stocker les scores classés
                 p1, p2, p3, p4, p5 = [], [], [], [], []
-                kev_data = set()
-            
-                # Récupération des CVE KEV
-                cur.execute(
-                    """
-                    SELECT cve_id 
-                    FROM biens_supports 
-                    WHERE bs_id = ? AND kev = 'YES';
-                """,
-                    (b,),
-                )
-                kev = cur.fetchall()
-                kev_data = {row[0] for row in kev}
 
-                # Classement des scores par priorité
-                for cve_id, exp_score, env_score in data:
-                    if cve_id in kev_data:
+                for exp_score, env_score, kev in data:
+                    if kev == "YES":
                         p1.append(exp_score)
-                    else:
-                        p2, p3, p4, p5 = self.definitionPx(p2, p3, p4, p5, env_score, exp_score)
+                    elif 9.00 <= env_score <= 10.0:
+                        p2.append(exp_score)
+                    elif 7.00 <= env_score <= 8.9:
+                        p3.append(exp_score)
+                    elif 4.00 <= env_score <= 6.9:
+                        p4.append(exp_score)
+                    elif 0.1 <= env_score <= 3.9:
+                        p5.append(exp_score)
 
-                # Stockage dans `dicoListePx`
-                impact_key = f"{b}-{impact}"
-                dicoListePx[impact_key] = [p5, p4, p3, p2, p1]
+                # 🔹 Génération de la boîte à moustaches uniquement si des données existent
+                if any([p1, p2, p3, p4, p5]):
+                    self.generate_boxplot(bs_id, impact, p1, p2, p3, p4, p5, boite_path)
 
-                # Génération de la boîte à moustaches
-                self.generate_boxplot(b, impact, p1, p2, p3, p4, p5, boite_path) # Création des boîtes à moustaches pour les biens supports
+
+
+
     def boite_vm(self, vm_id, folder_path):
         liste_dia = ["confidentiality", "integrity", "availability"]
         cur.execute(
@@ -1440,68 +1544,7 @@ def calcul_score_exploitabilité(
     return round(
         exp_score, 1
     )  # Fonction permettant de calculer le score d'exploitabilité CVSS 3.1
-def triAffichageVOR(
-    p1,
-    p2,
-    p3,
-    p4,
-    p5,
-    p1Vert,
-    p1Orange,
-    p1Rouge,
-    p2Vert,
-    p2Orange,
-    p2Rouge,
-    p3Vert,
-    p3Orange,
-    p4Vert,
-    p4Orange,
-    p5Vert,
-):
-    for score in p1:
-        if 0 <= score <= 0.4:
-            p1Vert += 1
-        elif 0.5 <= score <= 1.4:
-            p1Orange += 1
-        else:
-            p1Rouge += 1
 
-    for score in p2:
-        if 0 <= score <= 0.4:
-            p2Vert += 1
-        elif 0.5 <= score <= 2.4:
-            p2Orange += 1
-        else:
-            p2Rouge += 1
-
-    for score in p3:
-        if 0 <= score <= 1.4:
-            p3Vert += 1
-        else:
-            p3Orange += 1
-
-    for score in p4:
-        if 0 <= score <= 2.4:
-            p4Vert += 1
-        else:
-            p4Orange += 1
-
-    for score in p5:
-        p5Vert += 1
-
-    return (
-        p1Vert,
-        p1Orange,
-        p1Rouge,
-        p2Vert,
-        p2Orange,
-        p2Rouge,
-        p3Vert,
-        p3Orange,
-        p4Vert,
-        p4Orange,
-        p5Vert,
-    )  # Fonction permettant de trier le nombre de CVE en vert, orange et rouge (VOR) en fonction de chaque P(x)
 def calcul_score_environnemental(
     disponibiliteVM,
     integriteVM,
