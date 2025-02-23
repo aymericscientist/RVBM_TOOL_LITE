@@ -13,6 +13,7 @@ import secrets
 import string
 import sqlite3
 import requests
+import shutil
 from datetime import datetime
 from contextlib import ExitStack
 import numpy as np
@@ -919,68 +920,7 @@ class RBVMTool(QMainWindow):
             p5.append(scoreExp)
     
         return p2, p3, p4, p5
-    def triAffichageVOR(
-        p1,
-        p2,
-        p3,
-        p4,
-        p5,
-        p1Vert,
-        p1Orange,
-        p1Rouge,
-        p2Vert,
-        p2Orange,
-        p2Rouge,
-        p3Vert,
-        p3Orange,
-        p4Vert,
-        p4Orange,
-        p5Vert,
-    ):
-        for score in p1:
-            if 0 <= score <= 0.4:
-                p1Vert += 1
-            elif 0.5 <= score <= 1.4:
-                p1Orange += 1
-            else:
-                p1Rouge += 1
 
-        for score in p2:
-            if 0 <= score <= 0.4:
-                p2Vert += 1
-            elif 0.5 <= score <= 2.4:
-                p2Orange += 1
-            else:
-                p2Rouge += 1
-
-        for score in p3:
-            if 0 <= score <= 1.4:
-                p3Vert += 1
-            else:
-                p3Orange += 1
-
-        for score in p4:
-            if 0 <= score <= 2.4:
-                p4Vert += 1
-            else:
-                p4Orange += 1
-
-        for score in p5:
-            p5Vert += 1
-
-        return (
-            p1Vert,
-            p1Orange,
-            p1Rouge,
-            p2Vert,
-            p2Orange,
-            p2Rouge,
-            p3Vert,
-            p3Orange,
-            p4Vert,
-            p4Orange,
-            p5Vert,
-        )  # Fonction permettant de trier le nombre de CVE en vert, orange et rouge (VOR) en fonction de chaque P(x)
     def generate_boxplot(self, entity_id, impact, p1, p2, p3, p4, p5, folder_path):
         """
         Génère un boxplot aligné avec l'image de fond et respecte l'ordre P1 (haut) -> P5 (bas).
@@ -1019,7 +959,7 @@ class RBVMTool(QMainWindow):
             medianprops = dict(color="black", linewidth=1.5)
 
             # Mise en avant des boxplots où exp_score = 4
-            if all(np.median(group) == 4 for group in data if len(group) > 0):
+            if any(np.median(group) == 4 for group in data if len(group) > 0):
                 medianprops = dict(color="black", linewidth=6)
 
             ax.boxplot(data, vert=False, patch_artist=True, showfliers=True, tick_labels=labels, 
@@ -1046,15 +986,58 @@ class RBVMTool(QMainWindow):
                 print(f"⚠ Aucune donnée pour {entity_id} - {impact}, boxplot ignorée.")
                 return
 
-            # 🔹 Sauvegarde de l'image avec la boxplot
+            # 🔹 Sauvegarde de l'image principale
             output_path = os.path.join(folder_path, f"{name}.png")
             plt.savefig(output_path, format="png", dpi=300)
             plt.close(fig)
 
             print(f"✅ Boxplot alignée avec l'image de fond : {folder_path}/{name}.png")
 
+            # 🔹 Création des sous-dossiers pour les catégories ROUGE, ORANGE et VERT
+            rouge_path = os.path.join(folder_path, "01_ROUGE")
+            orange_path = os.path.join(folder_path, "02_ORANGE")
+            vert_path = os.path.join(folder_path, "03_VERT")
+
+            os.makedirs(rouge_path, exist_ok=True)
+            os.makedirs(orange_path, exist_ok=True)
+            os.makedirs(vert_path, exist_ok=True)
+
+            # 🔹 Déterminer où copier l'image en fonction des règles
+            should_copy_rouge = (
+                any(1.5 <= x <= 4.0 for x in p1) or
+                any(2.5 <= x <= 4.0 for x in p2)
+            )
+
+            should_copy_orange = (
+                any(0.5 <= x <= 1.4 for x in p1) or
+                any(0.5 <= x <= 2.4 for x in p2) or
+                any(1.5 <= x <= 4.0 for x in p3) or
+                any(2.5 <= x <= 4.0 for x in p4)
+            )
+
+            should_copy_vert = (
+                any(0 <= x <= 0.4 for x in p1) or
+                any(0 <= x <= 0.4 for x in p2) or
+                any(0 <= x <= 1.4 for x in p3) or
+                any(0 <= x <= 2.4 for x in p4) or
+                any(0 <= x <= 4.0 for x in p5)
+            )
+
+            # 🔹 Copie dans le bon répertoire (priorité : ROUGE > ORANGE > VERT)
+            if should_copy_rouge:
+                shutil.copy(output_path, os.path.join(rouge_path, f"{name}.png"))
+                print(f"📂 Copie de la boxplot dans {rouge_path}")
+            elif should_copy_orange:
+                shutil.copy(output_path, os.path.join(orange_path, f"{name}.png"))
+                print(f"📂 Copie de la boxplot dans {orange_path}")
+            elif should_copy_vert:
+                shutil.copy(output_path, os.path.join(vert_path, f"{name}.png"))
+                print(f"📂 Copie de la boxplot dans {vert_path}")
+
+
         except requests.RequestException as e:
             print(f"❌ Erreur lors du téléchargement de l'image de fond : {e}")
+
     def boite(self, boite_path):
         """
         Génère des boîtes à moustaches pour chaque bs_id à partir des vues impact_availability, 
@@ -1237,7 +1220,7 @@ class RBVMTool(QMainWindow):
         if not boite_path:
             print("No folder selected.")
             return
-        
+      
         print("📊 Vérification du contenu de la base SQLite")
         cur.execute("SELECT * FROM biens_supports LIMIT 5;")
         rows = cur.fetchall()
@@ -1266,18 +1249,6 @@ class RBVMTool(QMainWindow):
 
         print("📊 Contenu après exécution de `boite()` :", dicoListePx)
 
-        subfolder_VERT = os.path.join(boite_path, "03_VERT")
-        subfolder_ORANGE = os.path.join(boite_path, "02_ORANGE")
-        subfolder_ROUGE = os.path.join(boite_path, "01_ROUGE")
-        folder_BS_VERT = subfolder_VERT
-        folder_BS_ORANGE = subfolder_ORANGE
-        folder_BS_ROUGE = subfolder_ROUGE
-        if not os.path.exists(subfolder_VERT):
-            os.makedirs(subfolder_VERT, exist_ok=True)
-        if not os.path.exists(subfolder_ORANGE):
-            os.makedirs(subfolder_ORANGE, exist_ok=True)
-        if not os.path.exists(subfolder_ROUGE):
-            os.makedirs(subfolder_ROUGE, exist_ok=True)
         self.boite(boite_path)
     def start_conversion_MOA(self):
         print("✅ start_conversion_MOA appelé")
