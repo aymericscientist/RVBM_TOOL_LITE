@@ -1178,17 +1178,59 @@ class RBVMTool(QMainWindow):
                 self.generate_boxplot(vm_id, impact, p1, p2, p3, p4, p5, folder_path)
             else:
                 print(f"⚠ Aucun score valide trouvé pour {vm_id} - {impact}, boxplot ignorée.")
+
     def boite_vm_globale(self, folder_path):
-        liste_dia = ["confidentiality", "integrity", "availability"]
+        """
+        Génère une seule boîte à moustaches par impact en agrégeant toutes les données 
+        des `bs_id` depuis les vues impact_availability, impact_confidentiality et impact_integrity.
+        """
+        cur = self.cur  # Utilisation du curseur SQLite déjà initialisé
+        liste_impacts = ["availability", "confidentiality", "integrity"]
+        vues_impact = {
+            "availability": "impact_availability",
+            "confidentiality": "impact_confidentiality",
+            "integrity": "impact_integrity",
+        }
 
-        for impact in liste_dia:
-            p1 = dicoGlobal[impact]["p1"]
-            p2 = dicoGlobal[impact]["p2"]
-            p3 = dicoGlobal[impact]["p3"]
-            p4 = dicoGlobal[impact]["p4"]
-            p5 = dicoGlobal[impact]["p5"]
+        for impact in liste_impacts:
+            vue = vues_impact[impact]
 
-            self.generate_boxplot("Meta_VM", impact, p1, p2, p3, p4, p5, folder_VM_META) # Création des boîtes à moustaches pour la représentation globale des valeurs métiers
+            # 🔹 Initialisation des listes pour stocker les scores agrégés
+            p1, p2, p3, p4, p5 = [], [], [], [], []
+
+            # 🔹 Récupération de tous les bs_id et de leurs scores dans la vue correspondante
+            cur.execute(
+                f"""
+                SELECT exp_score, env_score, kev 
+                FROM {vue};
+                """
+            )
+            data = cur.fetchall()
+
+            # 🔹 Vérification si des données existent pour cette vue
+            if not data:
+                print(f"⚠ Aucune donnée trouvée dans {vue}. Boxplot ignorée.")
+                continue
+
+            for exp_score, env_score, kev in data:
+                if kev == "YES":
+                    p1.append(exp_score)
+                elif 9.00 <= env_score <= 10.0:
+                    p2.append(exp_score)
+                elif 7.00 <= env_score <= 8.9:
+                    p3.append(exp_score)
+                elif 4.00 <= env_score <= 6.9:
+                    p4.append(exp_score)
+                elif 0.1 <= env_score <= 3.9:
+                    p5.append(exp_score)
+
+            # 🔹 Vérification avant la génération de la boxplot
+            if any([p1, p2, p3, p4, p5]):
+                print(f"✅ Génération de la boxplot pour Méta_VM - {impact}")
+                self.generate_boxplot("Meta_VM", impact, p1, p2, p3, p4, p5, folder_path)
+            else:
+                print(f"⚠ Aucun score valide trouvé pour {impact}, boxplot ignorée.")
+
     def start_conversion_MOE(self):
         print("Début de la génération des représentations MOE")
         boite_path = filedialog.askdirectory()
