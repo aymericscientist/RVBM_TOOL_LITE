@@ -21,7 +21,7 @@ L’outil intègre plusieurs étapes allant de l’importation des besoins de s�
 ## Fonctionnalités
 
 - **Chargement des valeurs métiers et de leurs besoins de sécurité et de sûreté**  
-  Importation des données issues de fichiers Excel (ex. : `template_prerequis DIC.xlsx`) pour définir les exigences en termes de disponibilité, intégrité et confidentialité.
+  Importation des données issues de fichiers Excel (ex. : `template_prerequis DIC.xlsx`) pour définir les exigences en termes de disponibilité, intégrité et confidentialité. Attention dans le `template_prerequis DIC.xlsx` il faut compléter au minimum la colonne G (fonctionnalité), la colonne H (besoin de disponibilité), la colonne K (besoin d'intégrité) et la colonne M (besoin de confidentialité). De plus, vous devrez veiller à bien respecter la validation de données intégrées dans le template afin d'éviter les erreurs.
 
 - **Gestion du KEV Catalog**  
   Téléchargement automatique depuis le site du CISA ou chargement manuel d’un fichier KEV (Known Exploited Vulnerabilities) au format JSON ou CSV.
