@@ -1,98 +1,107 @@
-# Gestion des risques relatif aux biens supports (BS) et aux valeurs métiers (VM)
+# RBVM Tool
 
-Ce script Python permet d'analyser et de traiter des données issues de rapports de divulgation de vulnérabilités (VDR) ainsi que des catalogues de vulnérabilités exploitées (KEV). Il offre également des outils d'analyse statistique pour évaluer les risques des biens supports (BS) et des valeurs métiers (VM).
+> A tool for Risk Based Vulnerability Management
 
----
+## Table des matières
 
-## Fonctionnalités principales
+- [Description](#description)
+- [Fonctionnalités](#fonctionnalités)
+- [Installation](#installation)
+- [Utilisation](#utilisation)
+- [Structure du Code](#structure-du-code)
+- [Contribuer](#contribuer)
+- [Licence](#licence)
 
-1. **Importation des données VDR et KEV :**
-   - Importez et parsez des fichiers JSON pour extraire des données liées aux vulnérabilités.
-   - Mettez à jour les bases de données SQLite en fonction des données importées.
+## Description
 
-2. **Liaison BS et VM :**
-   - Associez des biens supports (BS) à des valeurs métiers (VM) en utilisant des fichiers Excel.
-   - Générez automatiquement les mises à jour de surface d'attaque pour les BS.
+RBVM Tool est une application Python conçue pour gérer et analyser les vulnérabilités d’un système en s’appuyant sur une approche basée sur le risque. L’outil intègre plusieurs étapes allant de l’importation des besoins de sécurité des valeurs métiers à la génération de représentations graphiques (boxplots) pour visualiser les risques.
 
-3. **Calculs des scores de vulnérabilité :**
-   - Calculez les scores d'exploitabilité (exp_score) et environnementaux (env_score) basés sur les vecteurs CVSS.
+## Fonctionnalités
 
-4. **Analyse statistique :**
-   - Générez des boîtes à moustache (boxplots) pour visualiser les scores de vulnérabilité selon leur sévérité (P1 à P5).
+- **Chargement des valeurs métiers et besoins de sécurité**  
+  Importation des données issues de fichiers Excel (ex. : `template_prerequis DIC.xlsx`) pour définir les exigences en termes de disponibilité, intégrité et confidentialité.
 
-5. **Base de données SQLite intégrée :**
-   - Gérez les données dans une base locale SQLite avec des tables optimisées (`biens_supports`, `valeurs_metiers`, et `jointure`).
+- **Gestion du KEV Catalog**  
+  Téléchargement automatique depuis le site du CISA ou chargement manuel d’un fichier KEV (Known Exploited Vulnerabilities) au format JSON ou CSV.
 
----
+- **Traitement des Vulnerability Disclosure Reports (VDR)**  
+  Extraction des vulnérabilités (CVE) et des métriques CVSS à partir de fichiers JSON.
 
-## Prérequis
+- **Association via une matrice BS-VM**  
+  Chargement d’un fichier Excel associant les biens supports aux valeurs métiers, permettant de mettre à jour la base de données avec les valeurs héritées en matière de sécurité.
 
-### Modules Python nécessaires :
-- **json** : Manipulation des fichiers JSON.
-- **sqlite3** : Base de données intégrée.
-- **tkinter** : Interface graphique pour la sélection des fichiers.
-- **matplotlib** : Visualisation graphique.
-- **pandas** : Analyse des données tabulaires.
-- **openpyxl** : Manipulation des fichiers Excel (.xlsx).
+- **Calcul des scores CVSS**  
+  Conversion des métriques du vecteur CVSS en scores d’exploitabilité et environnementaux, via des formules adaptées.
 
-Installez les bibliothèques manquantes avec la commande :
-```bash
-pip install matplotlib pandas openpyxl
-```
+- **Génération de représentations graphiques**  
+  Création de boxplots classant les scores d’exploitabilité par catégories (P1 à P5) en fonction des impacts sur la disponibilité, la confidentialité et l’intégrité. Les graphiques sont enregistrés dans des répertoires organisés (ex. : `01_ROUGE`, `02_ORANGE`, `03_VERT`).
 
----
+- **Interface graphique conviviale**  
+  Interface développée avec PyQt5 (et Tkinter pour certaines boîtes de dialogue) permettant de charger les fichiers, de lancer les traitements et de visualiser les résultats.
 
-## Structure du script
+- **Base de données SQLite chiffrée**  
+  Stockage sécurisé des données dans une base SQLite, protégée par une passphrase saisie ou générée lors du démarrage de l’application.
 
-### Tables principales
+## Installation
 
-1. **`valeurs_metiers` :**
-   - Contient les valeurs métiers avec leurs niveaux de confidentialité (C), d'intégrité (I) et de disponibilité (A).
+1. **Cloner le dépôt** ou télécharger le fichier `rbvm_tool.py`.
 
-2. **`biens_supports` :**
-   - Stocke les données sur les biens supports (BS), y compris les scores CVSS, les vecteurs d'attaque et les scores calculés.
-
-3. **`jointure` :**
-   - Lie les biens supports (BS) aux valeurs métiers (VM).
-
----
+2. **Installer les dépendances**  
+   Créez un fichier `requirements.txt` contenant :
+   ```
+   numpy
+   openpyxl
+   pandas
+   tabulate
+   matplotlib
+   requests
+   PyQt5
+   ```
+   Puis exécutez la commande suivante :
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 ## Utilisation
 
-1. **Exécution du script :**
-   Lancez le script dans votre environnement Python :
+1. **Lancer l’application**  
+   Exécutez la commande :
    ```bash
-   python rbvm.py
+   python rbvm_tool.py
    ```
 
-2. **Interface utilisateur :**
-   Une interface simple s'ouvre dans la console avec les options suivantes :
-   - **1 :** Importer les fichiers VDR et KEV.
-   - **2 :** Associer les BS aux VM et mettre à jour les surfaces d'attaque.
-   - **3 :** Générer les analyses statistiques descriptives.
-   - **4 :** Créer des boîtes à moustache pour visualiser les risques.
-   - **5 :** Quitter l'application.
+2. **Saisie de la passphrase**  
+   À l’ouverture, une fenêtre vous invite à saisir ou générer une passphrase forte. Celle-ci est utilisée pour chiffrer la base de données SQLite.
 
-3. **Sélection des fichiers :**
-   - L'interface graphique Tkinter permet de choisir les fichiers JSON et Excel nécessaires.
+3. **Chargement des fichiers**  
+   - **Valeurs métiers et besoins de sécurité :** Sélectionnez le fichier Excel correspondant (ex. : `template_prerequis DIC.xlsx`).  
+   - **KEV Catalog :** Choisissez de télécharger automatiquement depuis CISA ou de sélectionner un fichier local (JSON/CSV).  
+   - **VDR :** Chargez un ou plusieurs fichiers JSON contenant les Vulnerability Disclosure Reports.  
+   - **Matrice BS-VM :** Importez le fichier Excel associant les biens supports aux valeurs métiers (ex. : `template_matrice_vm_bs.xlsx`).
 
----
+4. **Génération des représentations graphiques**  
+   Utilisez l’interface pour générer :
+   - Les représentations des risques liés aux biens supports (MOE).  
+   - Les représentations des risques liés aux valeurs métiers (MOA).
 
-## Visualisation des données
+5. **Consulter les résultats**  
+   Les boxplots générées sont sauvegardées dans des répertoires organisés (ex. : `01_ROUGE`, `02_ORANGE`, `03_VERT`, etc.) selon les critères de classification.
 
-Les boîtes à moustache générées se trouvent dans des sous-dossiers organisés par niveaux de risque :
-- `03_VERT/` : Faible risque.
-- `02_ORANGE/` : Risque modéré.
-- `01_ROUGE/` : Haut risque.
+## Structure du Code
 
----
+- **rbvm_tool.py**  
+  Ce fichier contient l’ensemble des fonctionnalités de l’application, incluant :
+  - L’interface graphique (PyQt5 et Tkinter).  
+  - Les fonctions de chargement et de traitement des données issues des fichiers Excel et JSON.  
+  - La gestion de la base de données SQLite chiffrée.  
+  - La génération des boxplots pour la visualisation des risques.
 
-## Exemple d'extension
+## Contribuer
 
-Vous pouvez adapter ou étendre le script pour ajouter d'autres visualisations ou méthodes de traitement des vulnérabilités.
+Les contributions sont les bienvenues !  
+Si vous souhaitez améliorer l’outil ou corriger des bugs, merci de soumettre une pull request ou d’ouvrir une issue sur le dépôt GitHub.
 
----
+## Licence
 
-## Contact
+Ce projet est distribué sous licence [MIT](LICENSE).
 
-Pour toute question ou amélioration, n'hésitez pas à contacter l'auteur.
