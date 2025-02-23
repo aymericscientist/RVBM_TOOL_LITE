@@ -1022,7 +1022,7 @@ class RBVMTool(QMainWindow):
             if all(np.median(group) == 4 for group in data if len(group) > 0):
                 medianprops = dict(color="black", linewidth=6)
 
-            ax.boxplot(data, vert=False, patch_artist=True, showfliers=True, labels=labels, 
+            ax.boxplot(data, vert=False, patch_artist=True, showfliers=True, tick_labels=labels, 
                        boxprops=boxprops, medianprops=medianprops, zorder=1, whis=[0, 100])
 
             # 🔹 Ajouter titre et labels
@@ -1288,6 +1288,29 @@ class RBVMTool(QMainWindow):
             print("❌ Aucun dossier sélectionné, arrêt du processus.")
             return
 
+        # Créer les sous-dossiers pour les différentes catégories
+        subfolder_ROUGE = os.path.join(folder_path, "01_ROUGE")
+        subfolder_ORANGE = os.path.join(folder_path, "02_ORANGE")
+        subfolder_VERT = os.path.join(folder_path, "03_VERT")
+        subfolder_VM_META = os.path.join(folder_path, "04_Meta_représentation_des_VM")
+        folder_VM_VERT = subfolder_VERT
+        folder_VM_ORANGE = subfolder_ORANGE
+        folder_VM_ROUGE = subfolder_ROUGE
+        folder_VM_META = subfolder_VM_META
+        if not os.path.exists(subfolder_VERT):
+            os.makedirs(subfolder_VERT, exist_ok=True)
+        if not os.path.exists(subfolder_ORANGE):
+            os.makedirs(subfolder_ORANGE, exist_ok=True)
+        if not os.path.exists(subfolder_ROUGE):
+            os.makedirs(subfolder_ROUGE, exist_ok=True)
+        if not os.path.exists(subfolder_VM_META):
+            os.makedirs(subfolder_VM_META, exist_ok=True)
+        cur.execute("SELECT DISTINCT vm_id FROM jointure;")
+        v = cur.fetchall()
+        for vid in v:
+            vid = vid[0]
+            self.boite_vm(vid, folder_path)
+
         # Récupérer tous les vm_id
         self.cur.execute("SELECT DISTINCT vm_id FROM jointure;")
         vm_list = [row[0] for row in self.cur.fetchall()]
@@ -1341,36 +1364,13 @@ class RBVMTool(QMainWindow):
                 # Stocker dans le dictionnaire
                 dicoListePx[f"{vm_id}-{impact}"] = [p5, p4, p3, p2, p1]
 
-                # Créer les sous-dossiers pour les différentes catégories
-                subfolder_ROUGE = os.path.join(folder_path, "01_ROUGE")
-                subfolder_ORANGE = os.path.join(folder_path, "02_ORANGE")
-                subfolder_VERT = os.path.join(folder_path, "03_VERT")
-                subfolder_VM_META = os.path.join(folder_path, "04_Meta_représentation_des_VM")
-                folder_VM_VERT = subfolder_VERT
-                folder_VM_ORANGE = subfolder_ORANGE
-                folder_VM_ROUGE = subfolder_ROUGE
-                folder_VM_META = subfolder_VM_META
-                if not os.path.exists(subfolder_VERT):
-                    os.makedirs(subfolder_VERT, exist_ok=True)
-                if not os.path.exists(subfolder_ORANGE):
-                    os.makedirs(subfolder_ORANGE, exist_ok=True)
-                if not os.path.exists(subfolder_ROUGE):
-                    os.makedirs(subfolder_ROUGE, exist_ok=True)
-                if not os.path.exists(subfolder_VM_META):
-                    os.makedirs(subfolder_VM_META, exist_ok=True)
-                cur.execute("SELECT DISTINCT vm_id FROM jointure;")
-                v = cur.fetchall()
-                for vid in v:
-                    vid = vid[0]
-                    self.boite_vm(vid, folder_path)
-                
                 # Générer la boxplot
                 self.generate_boxplot(vm_id, impact, p1, p2, p3, p4, p5, "output")
 
                 print("✅ Processus terminé concernant les VM.")
        
-                self.boite_vm_globale(folder_path)
-                print("✅ Processus terminé concernant les méta-VM.")
+        self.boite_vm_globale(folder_path)
+        print("✅ Processus terminé concernant les méta-VM.")
 
 # Famille de fonctions concernant l'IHM
     def initUI(self):
