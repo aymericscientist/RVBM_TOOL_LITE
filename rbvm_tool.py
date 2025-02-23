@@ -921,8 +921,6 @@ class RBVMTool(QMainWindow):
             p5.append(scoreExp)
     
         return p2, p3, p4, p5
-
-
     def triAffichageVOR(
         p1,
         p2,
@@ -985,7 +983,6 @@ class RBVMTool(QMainWindow):
             p4Orange,
             p5Vert,
         )  # Fonction permettant de trier le nombre de CVE en vert, orange et rouge (VOR) en fonction de chaque P(x)
-
     def generate_boxplot(self, entity_id, impact, p1, p2, p3, p4, p5, folder_path):
         """
         Génère un boxplot aligné avec l'image de fond et respecte l'ordre P1 (haut) -> P5 (bas).
@@ -997,6 +994,10 @@ class RBVMTool(QMainWindow):
         now = datetime.now()
         date = now.strftime("%d.%m.%Y")
         name = f"{entity_id}-{impact}-{date}"
+
+         # Vérifier que le dossier d'output existe
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path, exist_ok=True)
 
         # URL de l'image de fond
         url = "https://raw.githubusercontent.com/aymericscientist/RVBM_TOOL_LITE/e503bf55ab8210858b010477e419ad3aa2585ae6/fond.png"
@@ -1021,7 +1022,7 @@ class RBVMTool(QMainWindow):
 
             # Mise en avant des boxplots où exp_score = 4
             if all(np.median(group) == 4 for group in data if len(group) > 0):
-                medianprops = dict(color="black", linewidth=3)
+                medianprops = dict(color="black", linewidth=6)
 
             ax.boxplot(data, vert=False, patch_artist=True, showfliers=True, labels=labels, 
                        boxprops=boxprops, medianprops=medianprops, zorder=1, whis=[0, 100])
@@ -1039,21 +1040,23 @@ class RBVMTool(QMainWindow):
             ax.set_yticks([1, 2, 3, 4, 5])
             ax.set_yticklabels(["P1", "P2", "P3", "P4", "P5"])  # 🔹 Ordre corrigé
 
+            # Vérification des données avant de générer la boxplot
+            print(f"📊 Données pour {entity_id} - {impact} :")
+            print(f"P1: {p1}, P2: {p2}, P3: {p3}, P4: {p4}, P5: {p5}")
+
+            if not any([p1, p2, p3, p4, p5]):  # Vérifier si toutes les listes sont vides
+                print(f"⚠ Aucune donnée pour {entity_id} - {impact}, boxplot ignorée.")
+                return
+
             # 🔹 Sauvegarde de l'image avec la boxplot
-            plt.savefig(f"{folder_path}/{name}.png", format="png", dpi=300)
+            output_path = os.path.join(folder_path, f"{name}.png")
+            plt.savefig(output_path, format="png", dpi=300)
             plt.close(fig)
 
             print(f"✅ Boxplot alignée avec l'image de fond : {folder_path}/{name}.png")
 
         except requests.RequestException as e:
             print(f"❌ Erreur lors du téléchargement de l'image de fond : {e}")
-
-
-
-
-
-
-
     def boite(self, boite_path):
         """
         Génère des boîtes à moustaches pour chaque bs_id à partir des vues impact_availability, 
@@ -1106,49 +1109,77 @@ class RBVMTool(QMainWindow):
                 # 🔹 Génération de la boîte à moustaches uniquement si des données existent
                 if any([p1, p2, p3, p4, p5]):
                     self.generate_boxplot(bs_id, impact, p1, p2, p3, p4, p5, boite_path)
-
-
-
-
     def boite_vm(self, vm_id, folder_path):
-        liste_dia = ["confidentiality", "integrity", "availability"]
+        # Génère des boîtes à moustaches pour chaque vm_id en agrégeant les données des bs_id 
+        #associés à partir des vues impact_availability, impact_confidentiality et impact_integrity.
+        cur = self.cur  # Utilisation du curseur SQLite déjà initialisé
+        liste_impacts = ["availability", "confidentiality", "integrity"]
+        vues_impact = {
+            "availability": "impact_availability",
+            "confidentiality": "impact_confidentiality",
+            "integrity": "impact_integrity",
+        }
+
+        # 🔹 Récupération des `bs_id` liés à la `vm_id` depuis la table jointure
         cur.execute(
             """
-            SELECT j.bs_id
-            FROM jointure j
-            WHERE j.vm_id = ?;
-        """,
+            SELECT DISTINCT bs_id 
+            FROM jointure 
+            WHERE vm_id = ?;
+            """,
             (vm_id,),
         )
-        rows = cur.fetchall()
+        bs_list = cur.fetchall()
 
-        p1t, p2t, p3t, p4t, p5t = {}, {}, {}, {}, {}
-        for impact in liste_dia:
-            p1t[impact] = []
-            p2t[impact] = []
-            p3t[impact] = []
-            p4t[impact] = []
-            p5t[impact] = []
+        if not bs_list:
+            print(f"⚠ Aucun bs_id trouvé pour la VM {vm_id}. Aucune boxplot ne sera générée.")
+            return
 
-        for row in rows:
-            bs_id = row[0]
-            for impact in liste_dia:
-                impact_key = f"{bs_id}-{impact}"
-                if impact_key in dicoListePx:
-                    p5t[impact].extend(dicoListePx[impact_key][0])
-                    p4t[impact].extend(dicoListePx[impact_key][1])
-                    p3t[impact].extend(dicoListePx[impact_key][2])
-                    p2t[impact].extend(dicoListePx[impact_key][3])
-                    p1t[impact].extend(dicoListePx[impact_key][4])
+        print(f"📊 bs_id récupérés pour la VM {vm_id} : {[bs[0] for bs in bs_list]}")
 
-        for impact in liste_dia:
-            dicoGlobal[impact]["p5"].extend(p5t[impact])
-            dicoGlobal[impact]["p4"].extend(p4t[impact])
-            dicoGlobal[impact]["p3"].extend(p3t[impact])
-            dicoGlobal[impact]["p2"].extend(p2t[impact])
-            dicoGlobal[impact]["p1"].extend(p1t[impact])
+        for impact in liste_impacts:
+            vue = vues_impact[impact]
 
-            self.generate_boxplot(vm_id, impact, p1t[impact], p2t[impact], p3t[impact], p4t[impact], p5t[impact], folder_path) # Création des boîtes à moustaches pour les valeurs métiers
+            # 🔹 Initialisation des listes pour stocker les scores agrégés
+            p1, p2, p3, p4, p5 = [], [], [], [], []
+
+            for bs in bs_list:
+                bs_id = bs[0]
+
+                # 🔹 Récupération des valeurs exp_score, env_score et kev pour chaque `bs_id` depuis la vue correspondante
+                cur.execute(
+                    f"""
+                    SELECT exp_score, env_score, kev 
+                    FROM {vue} 
+                    WHERE bs_id = ?;
+                    """,
+                    (bs_id,),
+                )
+                data = cur.fetchall()
+
+                # 🔹 Vérification si des données existent pour le `bs_id`
+                if not data:
+                    print(f"⚠ Aucune donnée dans {vue} pour bs_id {bs_id}.")
+                    continue
+
+                for exp_score, env_score, kev in data:
+                    if kev == "YES":
+                        p1.append(exp_score)
+                    elif 9.00 <= env_score <= 10.0:
+                        p2.append(exp_score)
+                    elif 7.00 <= env_score <= 8.9:
+                        p3.append(exp_score)
+                    elif 4.00 <= env_score <= 6.9:
+                        p4.append(exp_score)
+                    elif 0.1 <= env_score <= 3.9:
+                        p5.append(exp_score)
+
+            # 🔹 Vérification avant la génération des boxplots
+            if any([p1, p2, p3, p4, p5]):
+                print(f"✅ Génération de la boxplot pour VM {vm_id} - {impact}")
+                self.generate_boxplot(vm_id, impact, p1, p2, p3, p4, p5, folder_path)
+            else:
+                print(f"⚠ Aucun score valide trouvé pour {vm_id} - {impact}, boxplot ignorée.")
     def boite_vm_globale(self, folder_path):
         liste_dia = ["confidentiality", "integrity", "availability"]
 
@@ -1160,8 +1191,6 @@ class RBVMTool(QMainWindow):
             p5 = dicoGlobal[impact]["p5"]
 
             self.generate_boxplot("Meta_VM", impact, p1, p2, p3, p4, p5, folder_VM_META) # Création des boîtes à moustaches pour la représentation globale des valeurs métiers
-
-
     def start_conversion_MOE(self):
         print("Début de la génération des représentations MOE")
         boite_path = filedialog.askdirectory()
@@ -1210,40 +1239,100 @@ class RBVMTool(QMainWindow):
         if not os.path.exists(subfolder_ROUGE):
             os.makedirs(subfolder_ROUGE, exist_ok=True)
         self.boite(boite_path)
+
+
     def start_conversion_MOA(self):
         print("✅ start_conversion_MOA appelé")
-        print("📊 Contenu actuel de dicoListePx :", dicoListePx)  # Vérification
-        if not dicoListePx:
-            print("❌ dicoListePx est vide ou non défini !")
-            return
+        
+        # Demander un dossier à l'utilisateur
         folder_path = filedialog.askdirectory()
         if not folder_path:
-            print("No folder selected.")
+            print("❌ Aucun dossier sélectionné, arrêt du processus.")
             return
+
+        # Récupérer tous les vm_id
+        self.cur.execute("SELECT DISTINCT vm_id FROM jointure;")
+        vm_list = [row[0] for row in self.cur.fetchall()]
         
-        # Créer les sous-dossiers pour les différentes catégories
-        subfolder_ROUGE = os.path.join(folder_path, "01_ROUGE")
-        subfolder_ORANGE = os.path.join(folder_path, "02_ORANGE")
-        subfolder_VERT = os.path.join(folder_path, "03_VERT")
-        subfolder_VM_META = os.path.join(folder_path, "04_Meta_représentation_des_VM")
-        folder_VM_VERT = subfolder_VERT
-        folder_VM_ORANGE = subfolder_ORANGE
-        folder_VM_ROUGE = subfolder_ROUGE
-        folder_VM_META = subfolder_VM_META
-        if not os.path.exists(subfolder_VERT):
-            os.makedirs(subfolder_VERT, exist_ok=True)
-        if not os.path.exists(subfolder_ORANGE):
-            os.makedirs(subfolder_ORANGE, exist_ok=True)
-        if not os.path.exists(subfolder_ROUGE):
-            os.makedirs(subfolder_ROUGE, exist_ok=True)
-        if not os.path.exists(subfolder_VM_META):
-            os.makedirs(subfolder_VM_META, exist_ok=True)
-        cur.execute("SELECT DISTINCT vm_id FROM jointure;")
-        v = cur.fetchall()
-        for vid in v:
-            vid = vid[0]
-            self.boite_vm(vid, folder_path)
-        self.boite_vm_globale(folder_path)
+        dicoListePx = {}  # Initialiser le dictionnaire
+
+        for vm_id in vm_list:
+            print(f"📌 Traitement de la VM_ID: {vm_id}")
+
+            # Récupérer tous les bs_id associés à la vm_id
+            self.cur.execute("SELECT DISTINCT bs_id FROM jointure WHERE vm_id = ?;", (vm_id,))
+            bs_ids = [row[0] for row in self.cur.fetchall()]
+
+            if not bs_ids:
+                print(f"⚠️ Aucun bs_id trouvé pour vm_id={vm_id}")
+                continue
+
+            impacts = ["availability", "confidentiality", "integrity"]
+            
+            for impact in impacts:
+                print(f"🔎 Traitement de l'impact: {impact} pour VM_ID={vm_id}")
+
+                # Récupérer les données depuis la vue spécifique
+                query = f"""
+                    SELECT exp_score, env_score, KEV 
+                    FROM impact_{impact} 
+                    WHERE bs_id IN ({','.join(['?'] * len(bs_ids))});
+                """
+                self.cur.execute(query, bs_ids)
+                data = self.cur.fetchall()
+
+                if not data:
+                    print(f"⚠️ Pas de données pour impact_{impact} et VM_ID={vm_id}")
+                    continue
+
+                # Trier les données par P(x)
+                p1, p2, p3, p4, p5 = [], [], [], [], []
+
+                for exp_score, env_score, KEV in data:
+                    if KEV == "YES":
+                        p1.append(exp_score)
+                    elif 9.0 <= env_score <= 10.0:
+                        p2.append(exp_score)
+                    elif 7.0 <= env_score <= 8.9:
+                        p3.append(exp_score)
+                    elif 4.0 <= env_score <= 6.9:
+                        p4.append(exp_score)
+                    elif 0.1 <= env_score <= 3.9:
+                        p5.append(exp_score)
+
+                # Stocker dans le dictionnaire
+                dicoListePx[f"{vm_id}-{impact}"] = [p5, p4, p3, p2, p1]
+
+                # Créer les sous-dossiers pour les différentes catégories
+                subfolder_ROUGE = os.path.join(folder_path, "01_ROUGE")
+                subfolder_ORANGE = os.path.join(folder_path, "02_ORANGE")
+                subfolder_VERT = os.path.join(folder_path, "03_VERT")
+                subfolder_VM_META = os.path.join(folder_path, "04_Meta_représentation_des_VM")
+                folder_VM_VERT = subfolder_VERT
+                folder_VM_ORANGE = subfolder_ORANGE
+                folder_VM_ROUGE = subfolder_ROUGE
+                folder_VM_META = subfolder_VM_META
+                if not os.path.exists(subfolder_VERT):
+                    os.makedirs(subfolder_VERT, exist_ok=True)
+                if not os.path.exists(subfolder_ORANGE):
+                    os.makedirs(subfolder_ORANGE, exist_ok=True)
+                if not os.path.exists(subfolder_ROUGE):
+                    os.makedirs(subfolder_ROUGE, exist_ok=True)
+                if not os.path.exists(subfolder_VM_META):
+                    os.makedirs(subfolder_VM_META, exist_ok=True)
+                cur.execute("SELECT DISTINCT vm_id FROM jointure;")
+                v = cur.fetchall()
+                for vid in v:
+                    vid = vid[0]
+                    self.boite_vm(vid, folder_path)
+                
+                # Générer la boxplot
+                self.generate_boxplot(vm_id, impact, p1, p2, p3, p4, p5, "output")
+
+                print("✅ Processus terminé concernant les VM.")
+       
+                self.boite_vm_globale(folder_path)
+                print("✅ Processus terminé concernant les méta-VM.")
 
 # Famille de fonctions concernant l'IHM
     def initUI(self):
