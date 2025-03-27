@@ -4,8 +4,7 @@
 
 Cette étape consiste à compléter le document Excel [`template_prerequis DIC.xlsx`](https://github.com/aymericscientist/RVBM_TOOL_LITE/blob/746138f0ecdd2cb29c8f330502c0c334994b5dff/template_prerequis%20DIC.xlsx) permettant de répondre aux exigences suivantes :
 
-- **EBIOS-RM**  
-  [Méthode EBIOS Risk Manager](https://cyber.gouv.fr/la-methode-ebios-risk-manager)  
+- **EBIOS-RM** [Méthode EBIOS Risk Manager](https://cyber.gouv.fr/la-methode-ebios-risk-manager)  
   - Atelier n°1 - 5/ Comment procéder ?  
     - B) Délimiter le périmètre métier et technique  
     - C) Identifier les événements redoutés (définition des événements redoutés centraux concernant les valeurs métiers)
