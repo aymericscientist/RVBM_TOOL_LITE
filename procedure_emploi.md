@@ -46,8 +46,8 @@ Dans le cadre de la matrice finale, on intègre la combinatoire :
 
 ## 3ème étape [MOE] : Charger tous les VDR concernant l’exhaustivité des biens supports
 
-### a) Générez les **SBOM** du périmètre concerné  
-### b) Ingerer les SBOM dans **Dependency Track**  
+### a) Générez les **SBOM** du périmètre concerné (cf https://owasp-scvs.gitbook.io/scvs/v2-software-bill-of-materials) 
+### b) Ingerer les SBOM dans **Dependency Track**  (cf https://dependencytrack.org/)
 ### c) Générer les **VDR** à partir de Dependency Track  
 > ⚠️ Vérifiez que le **nom du composant parent** est bien **identique au nom du micro-service ou du conteneur désiré**
 
