@@ -22,15 +22,16 @@ Cette étape consiste à compléter le document Excel [`template_prerequis DIC.x
   [Spécification officielle](https://www.first.org/cvss/v3-1/specification-document)
 
 📌 Le document Excel doit être, de manière préférentielle, **continuellement accessible** aux équipes **SSI** ainsi qu’aux équipes **fonctionnelles** (MOA, AMOA et urbanistes), afin d’assurer la fraîcheur des données et de rester au plus proche du réel dans les résultats produits par le RVBM Tool.
+
 ![image](https://github.com/user-attachments/assets/11182a00-747e-44f6-aad7-415e968c6f2f)
 
 ---
 
 ## 2ème étape [MOE] : Charger le fichier *Known Exploited Vulnerabilities (KEV) Catalog* du **CISA**
 
-Dans le cadre de la matrice finale, on intègre :
+Dans le cadre de la matrice finale, on intègre la combinatoire :
 
-- La **combinaison des valeurs qualitatives** du tableau 14 de la [spécification CVSS 3.1](https://www.first.org/cvss/v3-1/specification-document)
+- Les **valeurs qualitatives** du tableau 14 de la [spécification CVSS 3.1](https://www.first.org/cvss/v3-1/specification-document)
 - La **présence ou non de vulnérabilités (CVE)** issues du **catalogue KEV** du **CISA**
 
 📡 Vous pouvez importer le fichier :
