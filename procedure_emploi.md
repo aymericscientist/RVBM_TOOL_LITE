@@ -6,6 +6,6 @@
     EBIOS-RM https://cyber.gouv.fr/la-methode-ebios-risk-manager 
       Atelier n°1 - 5/ Comment procéder ? - B) délimiter le périmètre métier et technique
       Atelier n°1 - 5/ Comment procéder ? - C) Identifier les événements redoutés 
-    ISO/TS 22317:2021 Sécurité et résilience — Systèmes de management de la continuité d'activité — Lignes directrices pour le bilan d'impact sur l'activité https://www.iso.org/fr/standard/79000.html
+    ISO/TS 22317:2021 Sécurité et résilience — Systèmes de management de la continuité d'activité — Lignes directrices pour le bilan d'impact sur l'activité https://www.iso.org/fr/standard/79000.html (attention pour que ce soit pleinement conforme, il faut veiller à opérer le BIA également sur le(s) service(s) organique(s) concerné(s))
     TOFAF https://www.opengroup.org/togaf 
     Score CVSS 3.1 https://www.first.org/cvss/v3-1/specification-document
