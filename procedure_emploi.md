@@ -31,7 +31,7 @@ Cette étape consiste à compléter le document Excel [`template_prerequis DIC.x
 Dans le cadre de la matrice finale, on intègre la combinatoire :
 
 - Les **valeurs qualitatives** du tableau 14 de la [spécification CVSS 3.1](https://www.first.org/cvss/v3-1/specification-document)
-- La **présence ou non de vulnérabilités (CVE)** issues du **catalogue KEV** du **CISA**
+- La **présence ou non de vulnérabilités (CVE)** issues du **[catalogue KEV](https://www.cisa.gov/resources-tools/resources/kev-catalog)** du **CISA**
 
 📡 Vous pouvez importer le fichier :
 - Automatiquement (si accès Internet)
