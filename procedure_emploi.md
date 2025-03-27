@@ -22,6 +22,7 @@ Cette étape consiste à compléter le document Excel permettant de répondre au
   [Spécification officielle](https://www.first.org/cvss/v3-1/specification-document)
 
 📌 Le document Excel doit être, de manière préférentielle, **continuellement accessible** aux équipes **SSI** ainsi qu’aux équipes **fonctionnelles** (MOA, AMOA et urbanistes), afin d’assurer la fraîcheur des données et de rester au plus proche du réel dans les résultats produits par le RVBM Tool.
+![image](https://github.com/user-attachments/assets/11182a00-747e-44f6-aad7-415e968c6f2f)
 
 ---
 
