@@ -15,8 +15,14 @@ Le document excel doit être, de manière préférentielle, continuellement acce
 
   Dans le cadre de la matrice finale, nous intégrons la combinaison des valeurs qualitatives du tableau 14 de https://www.first.org/cvss/v3-1/specification-document ainsi que de la présence ou non de vulnérabilités (CVE) présentes au sein du catalogue KEV du CISA. Cela représente la stratégie de traitement des risques. Vous avez la possibilité de l'importer automatiquement si vous avez un accès à Internet ou vous pouvez télécharger le fichier puis l'importer manuellement à cette étape. Cela permet un mode hors ligne concernant les systèmes les plus sensibles.
 
+Cela permet de répondre à l'exigence de :
+  EBIOS-RM https://cyber.gouv.fr/la-methode-ebios-risk-manager 
+    Atelier n°5 - 5/ Comment procéder ? - B) décider de la stratégie de traitement du risque
+  
 3ème étape [MOE] : Charger tous les VDR concernant l'exhaustivité des biens supports
-
+  a) vous devez générer les SBOM du périmètre concerné 
+  b) vous devez ingérer les SBOM du périmètre concerné dans dependency track
+  c) vous devez générez les VDR du périmètre concerné à partir de dependency track (attention, vérifiez bien que le nom du composant parent est bien identique au nom du micro-service ou du conteneur désiré)
 
 
 4ème étape [MOE] : Charger la matrice (excel) associant les biens supports aux valeurs métiers template_matrice_vm_bs.xslx]
