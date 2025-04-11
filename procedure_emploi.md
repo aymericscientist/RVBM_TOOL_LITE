@@ -73,6 +73,8 @@ Cette étape consiste à compléter le document Excel  [`template_matrice_vm_bs.
 
 ![image](https://github.com/user-attachments/assets/874ecdf0-08be-4995-bcca-3c8416ca9a09)
 
+📌 Le document Excel doit être, de manière préférentielle, **continuellement accessible** aux équipes **SSI** ainsi qu’aux équipes **techniques** (MOE, AMOE et architectes), afin d’assurer la fraîcheur des données et de rester au plus proche du réel dans les résultats produits par le RVBM Tool.
+
 ---
 
 ## 5ème étape [MOE] : Générer les représentations concernant les risques liés aux biens supports (MOE)
