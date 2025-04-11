@@ -14,11 +14,9 @@ Cette étape consiste à compléter le document Excel [`template_prerequis DIC.x
   [Lien vers la norme](https://www.iso.org/fr/standard/79000.html)  
   ⚠️ Pour être pleinement conforme, il faut veiller à opérer le BIA également sur le(s) service(s) organique(s) concerné(s)
 
-- **TOGAF**  
-  [Lien vers TOGAF](https://www.opengroup.org/togaf)
+- **TOGAF** [Lien vers TOGAF](https://www.opengroup.org/togaf)
 
-- **Score CVSS 3.1**  
-  [Spécification officielle](https://www.first.org/cvss/v3-1/specification-document)
+- **Score CVSS 3.1** [Spécification officielle](https://www.first.org/cvss/v3-1/specification-document)
 
 📌 Le document Excel doit être, de manière préférentielle, **continuellement accessible** aux équipes **SSI** ainsi qu’aux équipes **fonctionnelles** (MOA, AMOA et urbanistes), afin d’assurer la fraîcheur des données et de rester au plus proche du réel dans les résultats produits par le RVBM Tool.
 
@@ -30,12 +28,12 @@ Cette étape consiste à compléter le document Excel [`template_prerequis DIC.x
 
 Dans le cadre de la matrice finale, on intègre la combinatoire :
 
-- Les **valeurs qualitatives** du tableau 14 de la [spécification CVSS 3.1](https://www.first.org/cvss/v3-1/specification-document)
+- Les **valeurs qualitatives** du tableau 14 de la [spécification CVSS 3.1](https://www.first.org/cvss/v3-1/specification-document) ;
 - La **présence ou non de vulnérabilités (CVE)** issues du **[catalogue KEV](https://www.cisa.gov/resources-tools/resources/kev-catalog)** du **CISA**
 
 📡 Vous pouvez importer le fichier :
 - Automatiquement (si accès Internet)
-- Manuellement (téléchargement préalable, pour un usage **hors ligne** sur des systèmes sensibles)
+- Manuellement (téléchargement préalable, pour un usage **hors ligne** sur des systèmes sensibles) **[catalogue KEV](https://www.cisa.gov/resources-tools/resources/kev-catalog)**
 
 🎯 Cela permet de répondre à l’exigence suivante :
 
