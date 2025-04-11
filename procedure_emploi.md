@@ -12,7 +12,8 @@ Cette étape consiste à compléter le document Excel [`template_prerequis DIC.x
 - **ISO/TS 22317:2021** ⚠️ Pour être pleinement conforme, il faut veiller à opérer le BIA également sur le(s) service(s) organique(s) concerné(s)
   *Sécurité et résilience — Systèmes de management de la continuité d'activité — Lignes directrices pour le bilan d'impact sur l'activité*  
   [Lien vers la norme](https://www.iso.org/fr/standard/79000.html)  
-  
+
+- **ISO/IEC 27034-1:2011** [Lien vers la norme]((https://www.iso.org/standard/44378.html)) *Information technology — Security techniques — Application security* notamment la partie §7.3.2, §7.3.3, §7.3.6.
 
 - **TOGAF** [Lien vers TOGAF](https://www.opengroup.org/togaf)
 
