@@ -46,7 +46,7 @@ Dans le cadre de la matrice finale, on intègre la combinatoire :
 ### a) Générez les **SBOM** du périmètre concerné (cf https://owasp-scvs.gitbook.io/scvs/v2-software-bill-of-materials) 
 ### b) Ingerer les SBOM dans **Dependency Track**  (cf https://dependencytrack.org/)
 ### c) Générer les **VDR** à partir de Dependency Track  
-> ⚠️ Vérifiez que le **nom du composant parent** est bien **identique au nom du micro-service ou du conteneur désiré**
+> ⚠️ Vérifiez que le **nom du composant parent** est bien **identique au nom du micro-service ou du conteneur désiré**.
 ### d) Selectionner les **VDR** dans l'outil RBVM tool à l'étape 3
 > ⚠️ Les VDR permettent d’avoir (seulement) la connaissance des **vulnérabilités publiques connues (CVE)** sur votre périmètre technique.
 
