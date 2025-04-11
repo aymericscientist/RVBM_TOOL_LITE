@@ -22,10 +22,14 @@ Cette étape consiste à compléter le document Excel [`template_prerequis DIC.x
 
 ![image](https://github.com/user-attachments/assets/11182a00-747e-44f6-aad7-415e968c6f2f)
 
-⚠️ La colonne G doit **obligatoirement** être complétée, que ce soit conformément à TOGAF ou selon la dénomination de la valeur métier à votre discrétion
-⚠️ La colonne H doit **obligatoirement** être complétée. Vous devez **obligatoirement** respecter l'échelle qualitative imposée par le [Table 12: Security Requirements](https://www.first.org/cvss/v3-1/specification-document)
-⚠️ La colonne K doit **obligatoirement** être complétée. Vous devez **obligatoirement** respecter l'échelle qualitative imposée par le [Table 12: Security Requirements](https://www.first.org/cvss/v3-1/specification-document)
-⚠️ La colonne M doit **obligatoirement** être complétée. Vous devez **obligatoirement** respecter l'échelle qualitative imposée par le [Table 12: Security Requirements](https://www.first.org/cvss/v3-1/specification-document)
+> ⚠️ La colonne G doit **obligatoirement** être complétée, que ce soit conformément à TOGAF ou selon la dénomination de la valeur métier à votre discrétion
+
+> ⚠️ La colonne H doit **obligatoirement** être complétée. Vous devez **obligatoirement** respecter l'échelle qualitative imposée par le [Table 12: Security Requirements](https://www.first.org/cvss/v3-1/specification-document)
+
+> ⚠️ La colonne K doit **obligatoirement** être complétée. Vous devez **obligatoirement** respecter l'échelle qualitative imposée par le [Table 12: Security Requirements](https://www.first.org/cvss/v3-1/specification-document)
+
+> ⚠️ La colonne M doit **obligatoirement** être complétée. Vous devez **obligatoirement** respecter l'échelle qualitative imposée par le [Table 12: Security Requirements](https://www.first.org/cvss/v3-1/specification-document)
+
 ---
 
 ## 2ème étape [MOE] : Charger le fichier *Known Exploited Vulnerabilities (KEV) Catalog* du **CISA**
