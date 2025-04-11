@@ -41,7 +41,7 @@ Dans le cadre de la matrice finale, on intègre la combinatoire :
 
 ---
 
-## 3ème étape [MOE] : Charger tous les VDR concernant l’exhaustivité des biens supports
+## 3ème étape [MOE] : Charger chaque VDR concernant l’exhaustivité des biens supports
 
 ### a) Générez les **SBOM** du périmètre concerné (cf https://owasp-scvs.gitbook.io/scvs/v2-software-bill-of-materials) 
 ### b) Ingerer les SBOM dans **Dependency Track**  (cf https://dependencytrack.org/)
