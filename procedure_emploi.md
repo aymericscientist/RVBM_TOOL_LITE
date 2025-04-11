@@ -63,3 +63,15 @@ Cette étape consiste à compléter le document Excel  [`template_matrice_vm_bs.
 - **EBIOS-RM** [Atelier n°1 - 5/ Comment procéder ?](https://cyber.gouv.fr/la-methode-ebios-risk-manager)  
   - B) Délimiter le périmètre métier et technique  
   - C) Identifier les événements redoutés (définition des événements redoutés locaux concernant les biens supports)
+
+---
+
+## 5ème étape [MOE] : Générer les représentations concernant les risques liés aux biens supports (MOE)
+
+Cette étape consiste à opérer un traitement statistique descriptif atomique à destination des équipes projets. L'équipe projet va bénéficier de trois représentations : (1) concernant la disponibilité, (2) concernant l'intégrité et, (3) concernant la confidentialité. Cette représentation modélise la vue brute des risques concernant (1) ou (2) ou (3). Cet outil ne permet pas de proposer un plan de traitement des risques, ce sera l'objet d'un [futur projet](https://github.com/aymericscientist/CAB_automation_tool_with_SBOM).
+
+---
+
+## 6ème étape [MOA] : Générer les représentations concernant les risques liés aux valeurs métiers (MOA)
+
+Cette étape consiste à opérer un traitement statistique descriptif fédérant tous les biens supports liés à une valeur métier à destination des équipes projets. L'équipe projet va bénéficier de trois représentations : (1) concernant la disponibilité, (2) concernant l'intégrité et, (3) concernant la confidentialité. Cette représentation modélise la vue brute des risques concernant (1) ou (2) ou (3). Cet outil ne permet pas de proposer un plan de traitement des risques, ce sera l'objet d'un [futur projet](https://github.com/aymericscientist/CAB_automation_tool_with_SBOM).
