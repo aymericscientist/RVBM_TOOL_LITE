@@ -70,8 +70,20 @@ Cette étape consiste à compléter le document Excel  [`template_matrice_vm_bs.
 
 Cette étape consiste à opérer un traitement statistique descriptif atomique à destination des équipes projets. L'équipe projet va bénéficier de trois représentations : (1) concernant la disponibilité, (2) concernant l'intégrité et, (3) concernant la confidentialité. Cette représentation modélise la vue brute des risques concernant (1) ou (2) ou (3). Cet outil ne permet pas de proposer un plan de traitement des risques, ce sera l'objet d'un [futur projet](https://github.com/aymericscientist/CAB_automation_tool_with_SBOM).
 
+- **EBIOS-RM** [Atelier n°5 - 5/ Comment procéder ?](https://cyber.gouv.fr/la-methode-ebios-risk-manager)
+    - A) Réaliser une synthèse des scénarios de risque ;
+    - B) Décider de la stratégie de traitement du risque ;
+    - E) Mettre en place le cadre de suivi des risques ;
+    - F) Mettre en place des mécanismes de surveillance.
+
 ---
 
 ## 6ème étape [MOA] : Générer les représentations concernant les risques liés aux valeurs métiers (MOA)
 
 Cette étape consiste à opérer un traitement statistique descriptif fédérant tous les biens supports liés à une valeur métier à destination des équipes projets. L'équipe projet va bénéficier de trois représentations : (1) concernant la disponibilité, (2) concernant l'intégrité et, (3) concernant la confidentialité. Cette représentation modélise la vue brute des risques concernant (1) ou (2) ou (3). Cet outil ne permet pas de proposer un plan de traitement des risques, ce sera l'objet d'un [futur projet](https://github.com/aymericscientist/CAB_automation_tool_with_SBOM).
+
+- **EBIOS-RM** [Atelier n°5 - 5/ Comment procéder ?](https://cyber.gouv.fr/la-methode-ebios-risk-manager)
+    - A) Réaliser une synthèse des scénarios de risque ;
+    - B) Décider de la stratégie de traitement du risque ;
+    - E) Mettre en place le cadre de suivi des risques ;
+    - F) Mettre en place des mécanismes de surveillance.
