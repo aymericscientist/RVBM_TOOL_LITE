@@ -57,6 +57,7 @@ Les VDR permettent d’avoir (seulement) la connaissance des **vulnérabilités 
 ## 4ème étape [MOE] : Charger la matrice (Excel) associant les biens supports aux valeurs métiers
 
 Cette étape consiste à compléter le document Excel  [`template_matrice_vm_bs.xlsx`](https://github.com/aymericscientist/RVBM_TOOL_LITE/blob/e9179bf87252389e101b9cb91b3de3984cd5166d/template_matrice_vm_bs.xlsx) afin d’associer un ou plusieurs **biens supports** (micro-service, conteneur, etc.) à une **valeur métier** précise.
+> ⚠️ Vérifiez que toutes les dénominations de **valeurs métiers** et de **biens supports** soient homogènes et uniques. Le fichier excel doit notamment strictement reprendre le nom des valeurs métiers figurant dans l'étape n°1 et le nom des biens supports figurant à l'étape n°3. Toute incohérence sera affichée et vous ne pourrez pas aller au-delà le temps que ces prérequis ne sont pas correctement honorés
 
 🎯 Elle permet de répondre aux exigences suivantes :
 
