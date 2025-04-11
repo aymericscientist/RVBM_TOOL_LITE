@@ -9,10 +9,10 @@ Cette étape consiste à compléter le document Excel [`template_prerequis DIC.x
     - B) Délimiter le périmètre métier et technique  
     - C) Identifier les événements redoutés (définition des événements redoutés centraux concernant les valeurs métiers)
 
-- **ISO/TS 22317:2021**  
+- **ISO/TS 22317:2021** ⚠️ Pour être pleinement conforme, il faut veiller à opérer le BIA également sur le(s) service(s) organique(s) concerné(s)
   *Sécurité et résilience — Systèmes de management de la continuité d'activité — Lignes directrices pour le bilan d'impact sur l'activité*  
   [Lien vers la norme](https://www.iso.org/fr/standard/79000.html)  
-  ⚠️ Pour être pleinement conforme, il faut veiller à opérer le BIA également sur le(s) service(s) organique(s) concerné(s)
+  
 
 - **TOGAF** [Lien vers TOGAF](https://www.opengroup.org/togaf)
 
@@ -32,13 +32,12 @@ Dans le cadre de la matrice finale, on intègre la combinatoire :
 - La **présence ou non de vulnérabilités (CVE)** issues du **[catalogue KEV](https://www.cisa.gov/resources-tools/resources/kev-catalog)** du **CISA**
 
 📡 Vous pouvez importer le fichier :
-- Automatiquement (si accès Internet)
-- Manuellement (téléchargement préalable, pour un usage **hors ligne** sur des systèmes sensibles) **[catalogue KEV](https://www.cisa.gov/resources-tools/resources/kev-catalog)**
+- Automatiquement (si accès Internet) ;
+- Manuellement (téléchargement préalable, pour un usage **hors ligne** sur des systèmes sensibles) **[catalogue KEV](https://www.cisa.gov/resources-tools/resources/kev-catalog)**.
 
 🎯 Cela permet de répondre à l’exigence suivante :
 
-- **EBIOS-RM**  
-  [Atelier n°5 - 5/ Comment procéder ? - B) Décider de la stratégie de traitement du risque](https://cyber.gouv.fr/la-methode-ebios-risk-manager)
+- **EBIOS-RM** [Atelier n°5 - 5/ Comment procéder ? - B) Décider de la stratégie de traitement du risque](https://cyber.gouv.fr/la-methode-ebios-risk-manager)
 
 ---
 
@@ -48,13 +47,15 @@ Dans le cadre de la matrice finale, on intègre la combinatoire :
 ### b) Ingerer les SBOM dans **Dependency Track**  (cf https://dependencytrack.org/)
 ### c) Générer les **VDR** à partir de Dependency Track  
 > ⚠️ Vérifiez que le **nom du composant parent** est bien **identique au nom du micro-service ou du conteneur désiré**
-### c) Selectionner les **VDR** générés dans l'outil RBVM tool à l'étape 3
+### d) Selectionner les **VDR** dans l'outil RBVM tool à l'étape 3
 
 Les VDR permettent d’avoir (seulement) la connaissance des **vulnérabilités publiques connues (CVE)** sur votre périmètre technique.
 
 ---
 
-## 4ème étape [MOE] : Charger la matrice (Excel) associant les biens supports aux valeurs métiers [`template_matrice_vm_bs.xlsx`](https://github.com/aymericscientist/RVBM_TOOL_LITE/blob/746138f0ecdd2cb29c8f330502c0c334994b5dff/template_prerequis%20DIC.xlsx)
+## 4ème étape [MOE] : Charger la matrice (Excel) associant les biens supports aux valeurs métiers
+
+Cette étape consiste à compléter le document Excel [`template_matrice_vm_bs.xlsx] (https://github.com/aymericscientist/RVBM_TOOL_LITE/blob/e9179bf87252389e101b9cb91b3de3984cd5166d/template_matrice_vm_bs.xlsx) permettant de répondre aux exigences suivantes :
 
 Cette matrice permet d’associer un ou plusieurs **biens supports** (micro-service, conteneur, etc.) à une **valeur métier** précise.
 
