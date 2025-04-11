@@ -6,8 +6,8 @@ Cette étape consiste à compléter le document Excel [`template_prerequis DIC.x
 
 - **EBIOS-RM** [Méthode EBIOS Risk Manager](https://cyber.gouv.fr/la-methode-ebios-risk-manager)  
   - Atelier n°1 - 5/ Comment procéder ?  
-    - B) Délimiter le périmètre métier et technique  
-    - C) Identifier les événements redoutés (définition des événements redoutés centraux concernant les valeurs métiers)
+    - B) Délimiter le périmètre métier et technique ;  
+    - C) Identifier les événements redoutés (définition des événements redoutés centraux concernant les valeurs métiers).
 
 - **ISO/TS 22317:2021** ⚠️ Pour être pleinement conforme, il faut veiller à opérer le BIA également sur le(s) service(s) organique(s) concerné(s)
   *Sécurité et résilience — Systèmes de management de la continuité d'activité — Lignes directrices pour le bilan d'impact sur l'activité* [Lien vers la norme](https://www.iso.org/fr/standard/79000.html)  
@@ -61,8 +61,8 @@ Cette étape consiste à compléter le document Excel  [`template_matrice_vm_bs.
 🎯 Elle permet de répondre aux exigences suivantes :
 
 - **EBIOS-RM** [Atelier n°1 - 5/ Comment procéder ?](https://cyber.gouv.fr/la-methode-ebios-risk-manager)  
-  - B) Délimiter le périmètre métier et technique  
-  - C) Identifier les événements redoutés (définition des événements redoutés locaux concernant les biens supports)
+  - B) Délimiter le périmètre métier et technique ;  
+  - C) Identifier les événements redoutés (définition des événements redoutés locaux concernant les biens supports).
 
 ---
 
