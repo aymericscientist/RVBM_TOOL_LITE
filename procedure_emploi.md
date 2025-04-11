@@ -75,7 +75,7 @@ Cette étape consiste à compléter le document Excel  [`template_matrice_vm_bs.
 
 📌 Le document Excel doit être, de manière préférentielle, **continuellement accessible** aux équipes **SSI** ainsi qu’aux équipes **techniques** (MOE, AMOE et architectes), afin d’assurer la fraîcheur des données et de rester au plus proche du réel dans les résultats produits par le RVBM Tool.
 
-> ⚠️ Vous devez vous assurer la présence de **OUI** dans la cellule liant une valeur métier à un bien support
+> ⚠️ Vous devez vous assurer de la présence de **OUI** dans la cellule liant une valeur métier à un bien support
 
 ---
 
