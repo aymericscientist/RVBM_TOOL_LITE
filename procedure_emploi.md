@@ -71,6 +71,8 @@ Cette étape consiste à compléter le document Excel  [`template_matrice_vm_bs.
   - B) Délimiter le périmètre métier et technique ;  
   - C) Identifier les événements redoutés (définition des événements redoutés locaux concernant les biens supports).
 
+![image](https://github.com/user-attachments/assets/874ecdf0-08be-4995-bcca-3c8416ca9a09)
+
 ---
 
 ## 5ème étape [MOE] : Générer les représentations concernant les risques liés aux biens supports (MOE)
