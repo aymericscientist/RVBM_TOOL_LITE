@@ -55,14 +55,11 @@ Les VDR permettent d’avoir (seulement) la connaissance des **vulnérabilités 
 
 ## 4ème étape [MOE] : Charger la matrice (Excel) associant les biens supports aux valeurs métiers
 
-Cette étape consiste à compléter le document Excel  [`template_matrice_vm_bs.xlsx`](https://github.com/aymericscientist/RVBM_TOOL_LITE/blob/e9179bf87252389e101b9cb91b3de3984cd5166d/template_matrice_vm_bs.xlsx)  permettant de répondre aux exigences suivantes :
-
-Cette matrice permet d’associer un ou plusieurs **biens supports** (micro-service, conteneur, etc.) à une **valeur métier** précise.
+Cette étape consiste à compléter le document Excel  [`template_matrice_vm_bs.xlsx`](https://github.com/aymericscientist/RVBM_TOOL_LITE/blob/e9179bf87252389e101b9cb91b3de3984cd5166d/template_matrice_vm_bs.xlsx) afin d’associer un ou plusieurs **biens supports** (micro-service, conteneur, etc.) à une **valeur métier** précise.
 
 🎯 Elle permet de répondre aux exigences suivantes :
 
-- **EBIOS-RM**  
-  [Atelier n°1 - 5/ Comment procéder ?](https://cyber.gouv.fr/la-methode-ebios-risk-manager)  
+- **EBIOS-RM** [Atelier n°1 - 5/ Comment procéder ?](https://cyber.gouv.fr/la-methode-ebios-risk-manager)  
   - B) Délimiter le périmètre métier et technique  
   - C) Identifier les événements redoutés (définition des événements redoutés locaux concernant les biens supports)
 """
