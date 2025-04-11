@@ -48,6 +48,7 @@ Dans le cadre de la matrice finale, on intègre la combinatoire :
 ### b) Ingerer les SBOM dans **Dependency Track**  (cf https://dependencytrack.org/)
 ### c) Générer les **VDR** à partir de Dependency Track  
 > ⚠️ Vérifiez que le **nom du composant parent** est bien **identique au nom du micro-service ou du conteneur désiré**
+### c) Selectionner les **VDR** générés dans l'outil RBVM tool à l'étape 3
 
 Les VDR permettent d’avoir (seulement) la connaissance des **vulnérabilités publiques connues (CVE)** sur votre périmètre technique.
 
