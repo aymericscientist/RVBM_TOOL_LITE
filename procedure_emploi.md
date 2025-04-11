@@ -62,4 +62,3 @@ Cette étape consiste à compléter le document Excel  [`template_matrice_vm_bs.
 - **EBIOS-RM** [Atelier n°1 - 5/ Comment procéder ?](https://cyber.gouv.fr/la-methode-ebios-risk-manager)  
   - B) Délimiter le périmètre métier et technique  
   - C) Identifier les événements redoutés (définition des événements redoutés locaux concernant les biens supports)
-"""
