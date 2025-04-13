@@ -72,7 +72,7 @@ L’outil intègre plusieurs étapes allant de l’importation des besoins de s�
 
 ## Utilisation
 
-Veuillez la [procédure idoine](https://github.com/aymericscientist/RVBM_TOOL_LITE/blob/59de4013511d0f4d5e4c73a223157e453ce89a08/procedure_emploi.md)
+Veuillez consulter la [procédure idoine](https://github.com/aymericscientist/RVBM_TOOL_LITE/blob/59de4013511d0f4d5e4c73a223157e453ce89a08/procedure_emploi.md)
 
 ## Structure du Code
 
