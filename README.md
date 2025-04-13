@@ -70,30 +70,7 @@ L’outil intègre plusieurs étapes allant de l’importation des besoins de s�
 
 ## Utilisation
 
-1. **Lancer l’application**  
-   Exécutez la commande :
-   ```bash
-   python rbvm_tool.py
-   ```
-
-2. **Saisie de la passphrase**  
-   À l’ouverture, une fenêtre vous invite à saisir ou générer une passphrase forte. Celle-ci est utilisée pour chiffrer la base de données SQLite.
-
-   Ne sert pas pour le moment mais va servir à la prochaine mise à jour.
-
-4. **Chargement des fichiers**  
-   - **Valeurs métiers et leurs besoins de sécurité et de sûreté :** Sélectionnez le fichier Excel correspondant (ex. : `template_prerequis DIC.xlsx`).  
-   - **KEV Catalog :** Choisissez de télécharger automatiquement depuis CISA ou de sélectionner un fichier local (JSON/CSV).  
-   - **VDR :** Chargez un ou plusieurs fichiers JSON contenant les Vulnerability Disclosure Reports.  
-   - **Matrice BS-VM :** Importez le fichier Excel associant les biens supports aux valeurs métiers (ex. : `template_matrice_vm_bs.xlsx`).
-
-5. **Génération des représentations graphiques**  
-   Utilisez l’interface pour générer :
-   - Les représentations des risques liés aux biens supports (MOE) à destination des équipes projets et des RSSI.  
-   - Les représentations des risques liés aux valeurs métiers (MOA) à destination des fonctionnels, autorités et CSN.
-
-6. **Consulter les résultats**  
-   Les boxplots générées sont sauvegardées dans des répertoires organisés (ex. : `01_ROUGE`, `02_ORANGE`, `03_VERT`, etc.) selon les critères de classification.
+Veuillez la [procédure idoine](https://github.com/aymericscientist/RVBM_TOOL_LITE/blob/59de4013511d0f4d5e4c73a223157e453ce89a08/procedure_emploi.md)
 
 ## Structure du Code
 
