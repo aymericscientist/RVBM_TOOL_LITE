@@ -14,9 +14,17 @@
 
 ## Description
 
-RBVM Tool est une application Python conçue pour apprécier (identifier, analyser et évaluer) les risques d'un ou de plusieurs systèmes sociotechniques à l'échelle en s'appuyant sur une approche basée sur les vulnérabilités. A ce jour l'outil permet seulement de traiter les vulnérabilités publiques connues (CVE), la prochaine version permettra d'intégrer également les faiblesses (CWE) relevant des différents audits.
+RBVM Tool est une application Python conçue pour apprécier (identifier, analyser et évaluer) les risques brutes d'un ou de plusieurs systèmes sociotechniques à l'échelle en s'appuyant sur une approche basée sur les vulnérabilités (RBVM). A ce jour l'outil permet seulement de traiter les vulnérabilités publiques connues (CVE), la prochaine version permettra d'intégrer également les faiblesses (CWE) relevant des différents audits.
 
-L’outil intègre plusieurs étapes allant de l’importation des besoins de sécurité et de sûreté des valeurs métiers à la génération de représentations graphiques (boxplots) pour visualiser les risques. Cela permet de couvrir l'atelier n°1 de l'EBIOS-RM ainsi que l'atelier n°5 de l'EBIOS-RM.
+L’outil intègre plusieurs étapes allant de l’importation des besoins de sécurité et de sûreté des valeurs métiers à la génération de représentations graphiques (boxplots) pour visualiser les risques brutes. Cet outil permet de couvrir les référentiels suivants :
+- EBIOS-RM ;
+- ISO/CEI 27005:2022 ;
+- ISO/TS 22317:2021 ;
+- ISO/IEC 27034-1:2011 ;
+- TOGAF ;
+- Score CVSS 3.1 ;
+- catalogue KEV du CISA ;
+- Software Component Verification Standard (SCVS) V1.0 OWASP
 
 ## Fonctionnalités
 
