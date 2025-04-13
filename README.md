@@ -62,15 +62,7 @@ L’outil intègre plusieurs étapes allant de l’importation des besoins de s�
 1. **Cloner le dépôt** ou télécharger le fichier `rbvm_tool.py`.
 
 2. **Installer les dépendances**  
-   Créez un fichier `requirements.txt` contenant :
-   ```
-   numpy
-   openpyxl
-   pandas
-   tabulate
-   matplotlib
-   requests
-   PyQt5
+   Télécharger le fichier [`requirements.txt`](https://github.com/aymericscientist/RVBM_TOOL_LITE/blob/59de4013511d0f4d5e4c73a223157e453ce89a08/requirements.txt) 
    ```
    Puis exécutez la commande suivante :
    ```bash
