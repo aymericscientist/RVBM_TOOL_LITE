@@ -78,9 +78,9 @@ Veuillez la [procédure idoine](https://github.com/aymericscientist/RVBM_TOOL_LI
 
 - **rbvm_tool.py**  
   Ce fichier contient l’ensemble des fonctionnalités de l’application, incluant :
-  - L’interface graphique (PyQt5 et Tkinter).  
-  - Les fonctions de chargement et de traitement des données issues des fichiers Excel et JSON.  
-  - La gestion de la base de données SQLite chiffrée. - pas encore implémenté dans cette version 
+  - L’interface graphique (PyQt5 et Tkinter) ;
+  - Les fonctions de chargement et de traitement des données issues des fichiers Excel et JSON ;
+  - La gestion de la base de données SQLite ;
   - La génération des boxplots pour la visualisation des risques.
 
 ## Contribuer
