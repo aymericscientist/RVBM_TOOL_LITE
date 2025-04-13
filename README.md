@@ -65,7 +65,6 @@ L’outil intègre plusieurs étapes allant de l’importation des besoins de s�
    Télécharger le fichier [`requirements.txt`](https://github.com/aymericscientist/RVBM_TOOL_LITE/blob/59de4013511d0f4d5e4c73a223157e453ce89a08/requirements.txt) 
    ```
    Puis exécutez la commande suivante :
-   ```bash
    pip install -r requirements.txt
    ```
 
