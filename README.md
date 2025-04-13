@@ -19,6 +19,7 @@ RBVM Tool est une application Python conçue pour apprécier (identifier, analys
 L’outil intègre plusieurs étapes allant de l’importation des besoins de sécurité et de sûreté des valeurs métiers à la génération de représentations graphiques (boxplots) pour visualiser les risques brutes. Cet outil permet de couvrir les référentiels suivants :
 - EBIOS-RM ;
 - ISO/CEI 27005:2022 ;
+- ISO/CEI 31000:2018 ;
 - ISO/TS 22317:2021 ;
 - ISO/IEC 27034-1:2011 ;
 - TOGAF ;
