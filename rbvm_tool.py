@@ -7,7 +7,6 @@ import sys
 import os
 import re
 import json
-import math
 import time
 import secrets
 import string
@@ -24,13 +23,10 @@ warnings.simplefilter("ignore", UserWarning)
 
 # Imports pour la gestion des fichiers et des données
 import openpyxl  # Manipulation des fichiers Excel
-import pandas as pd  # Manipulation et analyse de données sous forme de DataFrames
-from tabulate import tabulate  # Formatage des tableaux pour l'affichage CLI
 
 # Imports pour l'affichage graphique
 import matplotlib.pyplot as plt  # Génération de graphiques
 import matplotlib.image as mpimg
-import matplotlib.patches as mpatches
 from io import BytesIO
 
 # Imports PyQt5 pour l'interface utilisateur
