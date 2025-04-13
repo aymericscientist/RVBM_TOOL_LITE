@@ -54,16 +54,7 @@ L’outil intègre plusieurs étapes allant de l’importation des besoins de s�
 
 ## Installation
 
-1. **Cloner le dépôt** ou télécharger le fichier `rbvm_tool.py`.
-
-2. **Télécharger les dépendances**  
-   Télécharger le fichier [`requirements.txt`](https://github.com/aymericscientist/RVBM_TOOL_LITE/blob/59de4013511d0f4d5e4c73a223157e453ce89a08/requirements.txt) 
-
-3. **Installer les dépendances**  
-   Puis exécutez la commande suivante :
-   ```
-   pip install -r requirements.txt
-   ```
+Il faut seulement utiliser le fichier [rbvm_tool.exe](https://github.com/aymericscientist/RVBM_TOOL_LITE/blob/f171abd559b1a5839d01bfdd4dc9f444e20b9882/rbvm_tool.exe) validé sur Windows 10
 
 ## Utilisation
 
