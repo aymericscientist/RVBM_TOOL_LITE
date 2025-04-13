@@ -52,11 +52,6 @@ L’outil intègre plusieurs étapes allant de l’importation des besoins de s�
 - **Interface graphique conviviale**  
   Interface développée avec PyQt5 (et Tkinter pour certaines boîtes de dialogue) permettant de charger les fichiers, de lancer les traitements et de visualiser les résultats.
 
-- **Base de données SQLite chiffrée**  
-  Stockage sécurisé des données dans une base SQLite, protégée par une passphrase saisie ou générée lors du démarrage de l’application.
-
-  Attention la BDD n'est pas encore chiffrée à date, nous essayons de trouver l'intégration optimale pour que ce soit le plus simple pour l'utilisateur final
-
 ## Installation
 
 1. **Cloner le dépôt** ou télécharger le fichier `rbvm_tool.py`.
